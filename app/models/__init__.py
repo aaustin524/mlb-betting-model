@@ -1,1 +1,2 @@
-"""Model training and prediction package."""
+"""Model training package."""
+

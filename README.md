@@ -12,34 +12,37 @@ This project is intentionally probability-first:
 - compare model probability vs. market probability
 - flag possible value with `edge_home` and `edge_away`
 
-## Phase 2 Goal
+## Phase 5 Goal
 
-Phase 2 sets up the SQLite database layer.
+Phase 5 trains the first home win probability model.
 
-This phase adds the project schema, a Python helper that initializes the database, and a simple command you can run from the terminal.
+This phase adds a logistic regression training script that reads `model_features`, evaluates the model, and saves it to `data/models/home_win_model.pkl`.
 
 ## Project Structure
 
 ```text
 mlb-betting-model/
   app/
-    api/          # future prediction pipeline helpers
-    backtest/     # future betting simulation code
-    db/           # database connection helpers
-    features/     # feature engineering code
-    ingest/       # data collection and loading code
-    models/       # model training and prediction code
-    utils/        # shared helpers
-    config.py     # simple settings and paths
-    main.py       # starter command-line entry point
+    api/                             # future prediction pipeline helpers
+    backtest/                        # future betting simulation code
+    db/                              # database connection helpers
+    features/                        # feature engineering code
+      build_game_features.py         # builds game-level features from past games
+    ingest/                          # data collection and loading code
+      historical_games.py            # loads historical MLB games from the Stats API
+    models/                          # model training and prediction code
+      train_win_probability.py       # trains the logistic regression home win model
+    utils/                           # shared helpers
+    config.py                        # simple settings and paths
+    main.py                          # starter command-line entry point
   data/
-    models/       # saved trained models
-    processed/    # cleaned datasets
-    raw/          # raw downloaded data
+    models/                          # saved trained models
+    processed/                       # cleaned datasets
+    raw/                             # raw downloaded data
   db/
-    schema.sql    # SQLite schema used to create the database
+    schema.sql                       # SQLite schema used to create the database
   tests/
-    test_smoke.py # simple starter test
+    test_smoke.py                    # simple starter test
   .env.example
   requirements.txt
   README.md
@@ -51,7 +54,9 @@ mlb-betting-model/
 2. Install the project requirements.
 3. Copy `.env.example` to `.env`.
 4. Initialize the database.
-5. Run the starter app.
+5. Load historical games.
+6. Build game features.
+7. Train the win probability model.
 
 Example commands:
 
@@ -61,8 +66,85 @@ python -m venv .venv
 pip install -r requirements.txt
 Copy-Item .env.example .env
 python -m app.main init-db
-python -m app.main
+python -m app.ingest.historical_games --start-date 2024-03-28 --end-date 2024-09-30
+python -m app.features.build_game_features
+python -m app.models.train_win_probability
 ```
+
+## Historical Game Ingestion
+
+The historical game loader uses the MLB Stats API as the data source.
+
+Run it like this:
+
+```powershell
+python -m app.ingest.historical_games --start-date 2024-03-28 --end-date 2024-09-30
+```
+
+Helpful options:
+
+- `--chunk-days 30` splits large requests into smaller date ranges.
+- `--log-level DEBUG` prints more detailed logs while the script runs.
+
+What the script does:
+
+- fetches real MLB schedule data from the Stats API
+- keeps only completed games
+- normalizes fields into the `games` table shape
+- upserts team rows first so foreign keys stay valid
+- upserts probable pitcher rows when the API provides them
+- upserts game rows by `game_id` to prevent duplicates on reruns
+
+## Game Feature Building
+
+The feature builder reads completed games from the `games` table and writes one row per game into `model_features`.
+
+Run it like this:
+
+```powershell
+python -m app.features.build_game_features
+```
+
+Helpful options:
+
+- `--start-date 2024-06-01` only writes features for games on or after that date.
+- `--end-date 2024-09-30` only writes features for games on or before that date.
+- `--log-level DEBUG` prints more detailed logs while the script runs.
+
+The script prevents future data leakage by using only games with a date earlier than the current game's date when it calculates rolling features.
+
+Phase 4 currently builds these fields:
+
+- `home_win_pct_last10`
+- `away_win_pct_last10`
+- `home_runs_per_game_last14`
+- `away_runs_per_game_last14`
+- `home_runs_allowed_last14`
+- `away_runs_allowed_last14`
+- `home_field_flag`
+- `target_home_win`
+
+## Model Training
+
+The training script loads `model_features` into a pandas DataFrame, trains a logistic regression model with an 80/20 train/test split, prints evaluation metrics, and saves the model artifact.
+
+Run it like this:
+
+```powershell
+python -m app.models.train_win_probability
+```
+
+The script prints:
+
+- `accuracy`
+- `log loss`
+- `ROC AUC`
+
+The trained model is saved to:
+
+- `data/models/home_win_model.pkl`
+
+For now, any feature columns that exist in the schema but are not populated yet are filled with `0.0` during training so later phases can add them without breaking the training pipeline.
 
 ## Database Initialization
 

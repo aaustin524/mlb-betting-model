@@ -129,3 +129,11 @@ def initialize_database(db_path: Path | None = None) -> Path:
         connection.commit()
 
     return target_path
+
+
+def main() -> None:
+    db_path = initialize_database()
+    print(f"Database initialized at: {db_path}")
+
+if __name__ == "__main__":
+    main()
