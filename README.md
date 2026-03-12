@@ -12,11 +12,11 @@ This project is intentionally probability-first:
 - compare model probability vs. market probability
 - flag possible value with `edge_home` and `edge_away`
 
-## Phase 5 Goal
+## Phase 6 Goal
 
-Phase 5 trains the first home win probability model.
+Phase 6 adds the first prediction pipeline.
 
-This phase adds a logistic regression training script that reads `model_features`, evaluates the model, and saves it to `data/models/home_win_model.pkl`.
+This phase loads the trained home win model, scores `model_features`, and saves `home_win_prob` and `away_win_prob` into the `predictions` table.
 
 ## Project Structure
 
@@ -32,6 +32,7 @@ mlb-betting-model/
       historical_games.py            # loads historical MLB games from the Stats API
     models/                          # model training and prediction code
       train_win_probability.py       # trains the logistic regression home win model
+      predict_win_probability.py     # scores games and saves win probabilities
     utils/                           # shared helpers
     config.py                        # simple settings and paths
     main.py                          # starter command-line entry point
@@ -57,6 +58,7 @@ mlb-betting-model/
 5. Load historical games.
 6. Build game features.
 7. Train the win probability model.
+8. Generate predictions.
 
 Example commands:
 
@@ -69,6 +71,7 @@ python -m app.main init-db
 python -m app.ingest.historical_games --start-date 2024-03-28 --end-date 2024-09-30
 python -m app.features.build_game_features
 python -m app.models.train_win_probability
+python -m app.models.predict_win_probability
 ```
 
 ## Historical Game Ingestion
@@ -144,7 +147,25 @@ The trained model is saved to:
 
 - `data/models/home_win_model.pkl`
 
-For now, any feature columns that exist in the schema but are not populated yet are filled with `0.0` during training so later phases can add them without breaking the training pipeline.
+## Prediction Pipeline
+
+The prediction script loads the trained model, reads rows from `model_features`, uses the same v1 feature columns as training, and saves probabilities into `predictions`.
+
+Run it like this:
+
+```powershell
+python -m app.models.predict_win_probability
+```
+
+Each saved prediction includes:
+
+- `game_id`
+- `model_version`
+- `prediction_time`
+- `home_win_prob`
+- `away_win_prob`
+
+The script replaces older rows for the same `game_id` and `model_version` so reruns stay clean.
 
 ## Database Initialization
 
