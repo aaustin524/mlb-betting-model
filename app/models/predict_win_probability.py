@@ -7,12 +7,13 @@ import pickle
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 
 from app.config import DB_PATH
 from app.db.schema import initialize_database
-from app.models.train_win_probability import MODEL_PATH, V1_FEATURE_COLUMNS
+from app.models.train_win_probability import BASE_FEATURE_COLUMNS, MODEL_PATH
 
 LOGGER = logging.getLogger(__name__)
 MODEL_VERSION = "v1_logistic_regression"
@@ -26,30 +27,38 @@ def configure_logging() -> None:
     )
 
 
-def load_model(model_path: Path) -> object:
-    """Load the trained model from disk."""
+def load_model_bundle(model_path: Path) -> dict[str, Any]:
+    """Load the trained model and its feature columns from disk."""
     if not model_path.exists():
         raise FileNotFoundError(
             f"Trained model not found at {model_path}. Run app.models.train_win_probability first."
         )
 
     with model_path.open("rb") as model_file:
-        model = pickle.load(model_file)
+        loaded_object = pickle.load(model_file)
+
+    if isinstance(loaded_object, dict) and "model" in loaded_object:
+        model_bundle = loaded_object
+    else:
+        model_bundle = {
+            "model": loaded_object,
+            "feature_columns": BASE_FEATURE_COLUMNS,
+        }
 
     LOGGER.info("Loaded trained model from %s", model_path)
-    return model
+    return model_bundle
 
 
 def load_prediction_data(connection: sqlite3.Connection) -> pd.DataFrame:
-    """Load the model_features rows needed for v1 predictions."""
+    """Load the model_features rows needed for predictions."""
     dataset = pd.read_sql_query("SELECT * FROM model_features ORDER BY game_id", connection)
     LOGGER.info("Loaded %s rows from model_features", len(dataset))
     return dataset
 
 
-def prepare_prediction_frame(dataset: pd.DataFrame) -> pd.DataFrame:
-    """Keep the v1 feature columns and the game id used for saving predictions."""
-    required_columns = ["game_id"] + V1_FEATURE_COLUMNS
+def prepare_prediction_frame(dataset: pd.DataFrame, feature_columns: list[str]) -> pd.DataFrame:
+    """Keep the selected feature columns and the game id used for saving predictions."""
+    required_columns = ["game_id"] + feature_columns
 
     for column in required_columns:
         if column not in dataset.columns:
@@ -64,12 +73,16 @@ def prepare_prediction_frame(dataset: pd.DataFrame) -> pd.DataFrame:
     return prediction_frame
 
 
-def build_prediction_rows(prediction_frame: pd.DataFrame, model: object) -> list[dict[str, object]]:
+def build_prediction_rows(
+    prediction_frame: pd.DataFrame,
+    model: object,
+    feature_columns: list[str],
+) -> list[dict[str, object]]:
     """Generate probability predictions for each game row."""
     if prediction_frame.empty:
         return []
 
-    feature_frame = prediction_frame[V1_FEATURE_COLUMNS]
+    feature_frame = prediction_frame[feature_columns]
     home_win_probs = model.predict_proba(feature_frame)[:, 1]
     prediction_time = datetime.now(timezone.utc).isoformat()
 
@@ -125,19 +138,21 @@ def replace_predictions(connection: sqlite3.Connection, prediction_rows: list[di
 
 
 def predict_win_probabilities() -> int:
-    """Load the trained v1 model, score model_features rows, and save predictions."""
+    """Load the trained model, score model_features rows, and save predictions."""
     initialize_database()
-    model = load_model(MODEL_PATH)
+    model_bundle = load_model_bundle(MODEL_PATH)
+    model = model_bundle["model"]
+    feature_columns = list(model_bundle["feature_columns"])
 
     with sqlite3.connect(DB_PATH) as connection:
         dataset = load_prediction_data(connection)
-        prediction_frame = prepare_prediction_frame(dataset)
+        prediction_frame = prepare_prediction_frame(dataset, feature_columns)
 
         if prediction_frame.empty:
             LOGGER.warning("No model_features rows were found to score.")
             return 0
 
-        prediction_rows = build_prediction_rows(prediction_frame, model)
+        prediction_rows = build_prediction_rows(prediction_frame, model, feature_columns)
         saved_count = replace_predictions(connection, prediction_rows)
 
     LOGGER.info("Saved %s prediction rows to the predictions table", saved_count)

@@ -1,5 +1,5 @@
 -- SQLite schema for the MLB betting model project.
--- This file matches the Phase 2 Python schema initializer.
+-- This file matches the Python schema initializer.
 
 CREATE TABLE IF NOT EXISTS teams (
     team_id INTEGER PRIMARY KEY,
@@ -74,12 +74,17 @@ CREATE TABLE IF NOT EXISTS model_features (
     away_runs_per_game_last14 REAL,
     home_runs_allowed_last14 REAL,
     away_runs_allowed_last14 REAL,
+    home_run_diff_last14 REAL,
+    away_run_diff_last14 REAL,
+    run_diff_edge_last14 REAL,
     home_starter_era REAL,
     away_starter_era REAL,
     home_starter_fip REAL,
     away_starter_fip REAL,
+    starter_fip_edge REAL,
     home_bullpen_ip_last3 REAL,
     away_bullpen_ip_last3 REAL,
+    bullpen_rest_edge REAL,
     home_field_flag INTEGER NOT NULL DEFAULT 1,
     target_home_win INTEGER,
     FOREIGN KEY (game_id) REFERENCES games (game_id)

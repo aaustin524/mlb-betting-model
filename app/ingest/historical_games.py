@@ -125,23 +125,24 @@ def count_games() -> int:
 
 
 def main() -> None:
-    season = 2024
+    seasons = range(2018, 2025)
 
-    logging.info("Fetching MLB schedule for season %s", season)
-    dates = fetch_schedule(season=season)
-    logging.info("Fetched %s date groups", len(dates))
+    for season in seasons:
+        logging.info("Fetching MLB schedule for season %s", season)
+        dates = fetch_schedule(season=season)
+        logging.info("Fetched %s date groups for %s", len(dates), season)
 
-    rows = parse_games(dates, season=season)
-    logging.info("Parsed %s final games", len(rows))
+        rows = parse_games(dates, season=season)
+        logging.info("Parsed %s final games for %s", len(rows), season)
 
-    if rows:
-        logging.info("First parsed row: %s", rows[0])
+        if rows:
+            logging.info("First parsed row for %s: %s", season, rows[0])
 
-    insert_teams(rows)
-    insert_games(rows)
+        insert_teams(rows)
+        insert_games(rows)
 
-    total_games = count_games()
-    logging.info("Total rows now in games table: %s", total_games)
+        total_games = count_games()
+        logging.info("Total rows now in games table after %s: %s", season, total_games)
 
 
 if __name__ == "__main__":

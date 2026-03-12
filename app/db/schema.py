@@ -82,12 +82,17 @@ CREATE TABLE IF NOT EXISTS model_features (
     away_runs_per_game_last14 REAL,
     home_runs_allowed_last14 REAL,
     away_runs_allowed_last14 REAL,
+    home_run_diff_last14 REAL,
+    away_run_diff_last14 REAL,
+    run_diff_edge_last14 REAL,
     home_starter_era REAL,
     away_starter_era REAL,
     home_starter_fip REAL,
     away_starter_fip REAL,
+    starter_fip_edge REAL,
     home_bullpen_ip_last3 REAL,
     away_bullpen_ip_last3 REAL,
+    bullpen_rest_edge REAL,
     home_field_flag INTEGER NOT NULL DEFAULT 1,
     target_home_win INTEGER,
     FOREIGN KEY (game_id) REFERENCES games (game_id)
@@ -112,20 +117,58 @@ CREATE TABLE IF NOT EXISTS predictions (
 );
 """
 
+MODEL_FEATURE_COLUMNS = {
+    "home_win_pct_last10": "REAL",
+    "away_win_pct_last10": "REAL",
+    "home_runs_per_game_last14": "REAL",
+    "away_runs_per_game_last14": "REAL",
+    "home_runs_allowed_last14": "REAL",
+    "away_runs_allowed_last14": "REAL",
+    "home_run_diff_last14": "REAL",
+    "away_run_diff_last14": "REAL",
+    "run_diff_edge_last14": "REAL",
+    "home_starter_era": "REAL",
+    "away_starter_era": "REAL",
+    "home_starter_fip": "REAL",
+    "away_starter_fip": "REAL",
+    "starter_fip_edge": "REAL",
+    "home_bullpen_ip_last3": "REAL",
+    "away_bullpen_ip_last3": "REAL",
+    "bullpen_rest_edge": "REAL",
+    "home_field_flag": "INTEGER NOT NULL DEFAULT 1",
+    "target_home_win": "INTEGER",
+}
+
 
 def get_db_path() -> Path:
     """Return the database path used by the project."""
     return DB_PATH
 
 
+def ensure_model_features_columns(connection: sqlite3.Connection) -> None:
+    """Add any newer feature columns that are missing from an existing SQLite table."""
+    existing_columns = {
+        row[1] for row in connection.execute("PRAGMA table_info(model_features)").fetchall()
+    }
+
+    for column_name, column_type in MODEL_FEATURE_COLUMNS.items():
+        if column_name in existing_columns:
+            continue
+
+        connection.execute(
+            f"ALTER TABLE model_features ADD COLUMN {column_name} {column_type}"
+        )
+
+
 def initialize_database(db_path: Path | None = None) -> Path:
-    """Create the SQLite database and all Phase 2 tables."""
+    """Create the SQLite database and all project tables."""
     target_path = db_path or get_db_path()
     target_path.parent.mkdir(parents=True, exist_ok=True)
 
     with sqlite3.connect(target_path) as connection:
         connection.execute("PRAGMA foreign_keys = ON;")
         connection.executescript(SCHEMA_SQL)
+        ensure_model_features_columns(connection)
         connection.commit()
 
     return target_path
@@ -134,6 +177,7 @@ def initialize_database(db_path: Path | None = None) -> Path:
 def main() -> None:
     db_path = initialize_database()
     print(f"Database initialized at: {db_path}")
+
 
 if __name__ == "__main__":
     main()

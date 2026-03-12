@@ -6,6 +6,7 @@ import logging
 import pickle
 import sqlite3
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 from sklearn.impute import SimpleImputer
@@ -20,14 +21,29 @@ from app.features.build_game_features import build_game_features
 
 LOGGER = logging.getLogger(__name__)
 MODEL_PATH = MODEL_DIR / "home_win_model.pkl"
-V1_FEATURE_COLUMNS = [
+BASE_FEATURE_COLUMNS = [
     "home_win_pct_last10",
     "away_win_pct_last10",
     "home_runs_per_game_last14",
     "away_runs_per_game_last14",
     "home_runs_allowed_last14",
     "away_runs_allowed_last14",
+    "home_run_diff_last14",
+    "away_run_diff_last14",
+    "run_diff_edge_last14",
     "home_field_flag",
+]
+OPTIONAL_STARTER_FEATURE_COLUMNS = [
+    "home_starter_era",
+    "away_starter_era",
+    "home_starter_fip",
+    "away_starter_fip",
+    "starter_fip_edge",
+]
+OPTIONAL_BULLPEN_FEATURE_COLUMNS = [
+    "home_bullpen_ip_last3",
+    "away_bullpen_ip_last3",
+    "bullpen_rest_edge",
 ]
 TARGET_COLUMN = "target_home_win"
 
@@ -48,9 +64,35 @@ def load_training_data(connection: sqlite3.Connection) -> pd.DataFrame:
     return dataset
 
 
-def prepare_training_frame(dataset: pd.DataFrame) -> pd.DataFrame:
-    """Keep only the v1 columns and make sure they exist."""
-    required_columns = V1_FEATURE_COLUMNS + [TARGET_COLUMN]
+def add_safe_optional_columns(
+    dataset: pd.DataFrame,
+    feature_columns: list[str],
+    optional_columns: list[str],
+) -> None:
+    """Append optional columns when they have at least some non-null values."""
+    for column in optional_columns:
+        if column not in dataset.columns:
+            continue
+
+        non_null_count = dataset[column].notna().sum()
+        if non_null_count == 0:
+            continue
+
+        feature_columns.append(column)
+
+
+def get_training_feature_columns(dataset: pd.DataFrame) -> list[str]:
+    """Choose safe feature columns for the current version of the training dataset."""
+    feature_columns = list(BASE_FEATURE_COLUMNS)
+    add_safe_optional_columns(dataset, feature_columns, OPTIONAL_STARTER_FEATURE_COLUMNS)
+    add_safe_optional_columns(dataset, feature_columns, OPTIONAL_BULLPEN_FEATURE_COLUMNS)
+    LOGGER.info("Training with feature columns: %s", ", ".join(feature_columns))
+    return feature_columns
+
+
+def prepare_training_frame(dataset: pd.DataFrame, feature_columns: list[str]) -> pd.DataFrame:
+    """Keep only the chosen columns and make sure they exist."""
+    required_columns = feature_columns + [TARGET_COLUMN]
 
     for column in required_columns:
         if column not in dataset.columns:
@@ -96,11 +138,15 @@ def validate_training_frame(training_frame: pd.DataFrame) -> None:
         raise ValueError("The training data is too small. Load more games before training the model.")
 
 
-def save_model(model: Pipeline, model_path: Path) -> None:
-    """Save the trained model to disk."""
+def save_model(model: Pipeline, feature_columns: list[str], model_path: Path) -> None:
+    """Save the trained model and its feature list to disk."""
     model_path.parent.mkdir(parents=True, exist_ok=True)
+    model_bundle: dict[str, Any] = {
+        "model": model,
+        "feature_columns": feature_columns,
+    }
     with model_path.open("wb") as model_file:
-        pickle.dump(model, model_file)
+        pickle.dump(model_bundle, model_file)
     LOGGER.info("Saved trained model to %s", model_path)
 
 
@@ -111,10 +157,11 @@ def train_win_probability_model() -> Path:
     with sqlite3.connect(DB_PATH) as connection:
         dataset = ensure_model_features_exist(connection)
 
-    training_frame = prepare_training_frame(dataset)
+    feature_columns = get_training_feature_columns(dataset)
+    training_frame = prepare_training_frame(dataset, feature_columns)
     validate_training_frame(training_frame)
 
-    x = training_frame[V1_FEATURE_COLUMNS]
+    x = training_frame[feature_columns]
     y = training_frame[TARGET_COLUMN]
 
     x_train, x_test, y_train, y_test = train_test_split(
@@ -142,7 +189,7 @@ def train_win_probability_model() -> Path:
     print(f"Log Loss: {loss:.4f}")
     print(f"ROC AUC: {roc_auc:.4f}")
 
-    save_model(model_pipeline, MODEL_PATH)
+    save_model(model_pipeline, feature_columns, MODEL_PATH)
     return MODEL_PATH
 
 
