@@ -12,6 +12,56 @@ This project is intentionally probability-first:
 - compare model probability vs. market probability
 - flag possible value with `edge_home` and `edge_away`
 
+## Odds Ingestion
+
+The first odds ingestion step loads MLB moneyline odds into the `odds_snapshots` table.
+
+It stores these fields:
+
+- `game_id`
+- `sportsbook_name`
+- `snapshot_time`
+- `home_moneyline`
+- `away_moneyline`
+
+This version uses The Odds API MLB moneyline feed and matches the odds back to games already stored in the database.
+
+Before running it, set your API key in the environment:
+
+```powershell
+$env:ODDS_API_KEY="your_api_key_here"
+```
+
+Run the odds feed like this:
+
+```powershell
+python -m app.ingest.odds_feed --start-date 2026-03-12 --end-date 2026-03-12
+```
+
+Helpful options:
+
+- `--regions us` uses U.S. sportsbooks.
+- `--log-level DEBUG` prints more detailed logs.
+
+The script logs:
+
+- how many odds records were fetched
+- how many rows were inserted
+- how many rows were skipped
+
+Duplicate rows are avoided by a unique index on `game_id`, `sportsbook_name`, and `snapshot_time`.
+
+## Probability Helpers
+
+The shared probability helpers live in `app/utils/probabilities.py`.
+
+They include:
+
+- `american_to_implied_prob`
+- `no_vig_probs`
+
+These helpers convert American odds into implied probabilities and remove vig by normalizing the two sides.
+
 ## Phase 6 Goal
 
 Phase 6 adds the first prediction pipeline.
@@ -30,10 +80,12 @@ mlb-betting-model/
       build_game_features.py         # builds game-level features from past games
     ingest/                          # data collection and loading code
       historical_games.py            # loads historical MLB games from the Stats API
+      odds_feed.py                   # loads MLB moneyline odds into odds_snapshots
     models/                          # model training and prediction code
       train_win_probability.py       # trains the logistic regression home win model
       predict_win_probability.py     # scores games and saves win probabilities
     utils/                           # shared helpers
+      probabilities.py               # implied probability and no-vig helpers
     config.py                        # simple settings and paths
     main.py                          # starter command-line entry point
   data/
@@ -56,9 +108,10 @@ mlb-betting-model/
 3. Copy `.env.example` to `.env`.
 4. Initialize the database.
 5. Load historical games.
-6. Build game features.
-7. Train the win probability model.
-8. Generate predictions.
+6. Load moneyline odds.
+7. Build game features.
+8. Train the win probability model.
+9. Generate predictions.
 
 Example commands:
 
@@ -67,8 +120,10 @@ python -m venv .venv
 .venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 Copy-Item .env.example .env
+$env:ODDS_API_KEY="your_api_key_here"
 python -m app.main init-db
 python -m app.ingest.historical_games --start-date 2024-03-28 --end-date 2024-09-30
+python -m app.ingest.odds_feed --start-date 2024-03-28 --end-date 2024-09-30
 python -m app.features.build_game_features
 python -m app.models.train_win_probability
 python -m app.models.predict_win_probability
@@ -98,35 +153,6 @@ What the script does:
 - upserts probable pitcher rows when the API provides them
 - upserts game rows by `game_id` to prevent duplicates on reruns
 
-## Game Feature Building
-
-The feature builder reads completed games from the `games` table and writes one row per game into `model_features`.
-
-Run it like this:
-
-```powershell
-python -m app.features.build_game_features
-```
-
-Helpful options:
-
-- `--start-date 2024-06-01` only writes features for games on or after that date.
-- `--end-date 2024-09-30` only writes features for games on or before that date.
-- `--log-level DEBUG` prints more detailed logs while the script runs.
-
-The script prevents future data leakage by using only games with a date earlier than the current game's date when it calculates rolling features.
-
-Phase 4 currently builds these fields:
-
-- `home_win_pct_last10`
-- `away_win_pct_last10`
-- `home_runs_per_game_last14`
-- `away_runs_per_game_last14`
-- `home_runs_allowed_last14`
-- `away_runs_allowed_last14`
-- `home_field_flag`
-- `target_home_win`
-
 ## Model Training
 
 The training script loads `model_features` into a pandas DataFrame, trains a logistic regression model with an 80/20 train/test split, prints evaluation metrics, and saves the model artifact.
@@ -149,7 +175,7 @@ The trained model is saved to:
 
 ## Prediction Pipeline
 
-The prediction script loads the trained model, reads rows from `model_features`, uses the same v1 feature columns as training, and saves probabilities into `predictions`.
+The prediction script loads the trained model, reads rows from `model_features`, uses the same saved feature columns as training, and saves probabilities into `predictions`.
 
 Run it like this:
 
@@ -166,58 +192,3 @@ Each saved prediction includes:
 - `away_win_prob`
 
 The script replaces older rows for the same `game_id` and `model_version` so reruns stay clean.
-
-## Database Initialization
-
-To create the SQLite database and all Phase 2 tables, run:
-
-```powershell
-python -m app.main init-db
-```
-
-This creates the database file at `db/mlb_betting_model.sqlite`.
-
-The initialization command creates these tables:
-
-- `teams`
-- `games`
-- `starting_pitchers`
-- `team_daily_stats`
-- `pitcher_daily_stats`
-- `odds_snapshots`
-- `model_features`
-- `predictions`
-
-## What Comes Next
-
-The planned build order is:
-
-1. Project setup
-2. Database setup
-3. Data ingestion
-4. Feature engineering
-5. Model training
-6. Prediction pipeline
-7. Backtesting
-
-## Core Outputs
-
-Later phases will produce these important prediction fields:
-
-- `home_win_prob`
-- `away_win_prob`
-- `market_home_implied_prob_raw`
-- `market_away_implied_prob_raw`
-- `market_home_implied_prob_no_vig`
-- `market_away_implied_prob_no_vig`
-- `edge_home`
-- `edge_away`
-- `recommended_side`
-- `recommended_bet`
-
-## Notes
-
-- Logistic regression is the first modeling approach.
-- SQLite is the starter database.
-- Models will be saved in `data/models/`.
-- Code should stay simple, readable, and well commented.

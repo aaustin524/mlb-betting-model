@@ -65,6 +65,9 @@ CREATE TABLE IF NOT EXISTS odds_snapshots (
     FOREIGN KEY (game_id) REFERENCES games (game_id)
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS idx_odds_snapshots_unique
+ON odds_snapshots (game_id, sportsbook_name, snapshot_time);
+
 CREATE TABLE IF NOT EXISTS model_features (
     feature_id INTEGER PRIMARY KEY,
     game_id INTEGER NOT NULL UNIQUE,
