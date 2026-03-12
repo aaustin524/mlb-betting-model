@@ -12,11 +12,11 @@ This project is intentionally probability-first:
 - compare model probability vs. market probability
 - flag possible value with `edge_home` and `edge_away`
 
-## Phase 1 Goal
+## Phase 2 Goal
 
-Phase 1 sets up a clean project foundation.
+Phase 2 sets up the SQLite database layer.
 
-This phase does not build the full model yet. It prepares the folders, starter files, and database schema we will use in later phases.
+This phase adds the project schema, a Python helper that initializes the database, and a simple command you can run from the terminal.
 
 ## Project Structure
 
@@ -31,13 +31,13 @@ mlb-betting-model/
     models/       # model training and prediction code
     utils/        # shared helpers
     config.py     # simple settings and paths
-    main.py       # starter entry point
+    main.py       # starter command-line entry point
   data/
     models/       # saved trained models
     processed/    # cleaned datasets
     raw/          # raw downloaded data
   db/
-    schema.sql    # starter SQLite schema
+    schema.sql    # SQLite schema used to create the database
   tests/
     test_smoke.py # simple starter test
   .env.example
@@ -50,7 +50,8 @@ mlb-betting-model/
 1. Create a virtual environment.
 2. Install the project requirements.
 3. Copy `.env.example` to `.env`.
-4. Run the starter app.
+4. Initialize the database.
+5. Run the starter app.
 
 Example commands:
 
@@ -59,8 +60,30 @@ python -m venv .venv
 .venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 Copy-Item .env.example .env
+python -m app.main init-db
 python -m app.main
 ```
+
+## Database Initialization
+
+To create the SQLite database and all Phase 2 tables, run:
+
+```powershell
+python -m app.main init-db
+```
+
+This creates the database file at `db/mlb_betting_model.sqlite`.
+
+The initialization command creates these tables:
+
+- `teams`
+- `games`
+- `starting_pitchers`
+- `team_daily_stats`
+- `pitcher_daily_stats`
+- `odds_snapshots`
+- `model_features`
+- `predictions`
 
 ## What Comes Next
 

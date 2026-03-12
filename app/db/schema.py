@@ -1,6 +1,14 @@
--- SQLite schema for the MLB betting model project.
--- This file matches the Phase 2 Python schema initializer.
+"""SQLite schema helpers for the MLB betting model project."""
 
+from __future__ import annotations
+
+import sqlite3
+from pathlib import Path
+
+from app.config import DB_PATH
+
+
+SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS teams (
     team_id INTEGER PRIMARY KEY,
     team_name TEXT NOT NULL,
@@ -102,3 +110,22 @@ CREATE TABLE IF NOT EXISTS predictions (
     recommended_bet INTEGER,
     FOREIGN KEY (game_id) REFERENCES games (game_id)
 );
+"""
+
+
+def get_db_path() -> Path:
+    """Return the database path used by the project."""
+    return DB_PATH
+
+
+def initialize_database(db_path: Path | None = None) -> Path:
+    """Create the SQLite database and all Phase 2 tables."""
+    target_path = db_path or get_db_path()
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+
+    with sqlite3.connect(target_path) as connection:
+        connection.execute("PRAGMA foreign_keys = ON;")
+        connection.executescript(SCHEMA_SQL)
+        connection.commit()
+
+    return target_path
