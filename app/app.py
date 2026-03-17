@@ -3610,35 +3610,27 @@ def render_matchup_cards(display_df):
                     unsafe_allow_html=True,
                 )
 
-                recommendation_col_1, recommendation_col_2 = st.columns(2)
-                with recommendation_col_1:
-                    st.markdown(
-                        dedent(
-                            f"""
+                st.markdown(
+                    dedent(
+                        f"""
+                        <div class="bet-slip-grid">
                             <div class="bet-slip-card side">
                                 <div class="bet-slip-label">Best Side Bet</div>
                                 <div class="bet-slip-pick">{best_side_label}</div>
                                 {side_badges}
                                 <div class="bet-slip-summary">{best_side_summary}</div>
                             </div>
-                            """
-                        ).strip(),
-                        unsafe_allow_html=True,
-                    )
-                with recommendation_col_2:
-                    st.markdown(
-                        dedent(
-                            f"""
                             <div class="bet-slip-card total">
                                 <div class="bet-slip-label">Best Total Bet</div>
                                 <div class="bet-slip-pick">{best_total_bet_label}</div>
                                 {total_badges}
                                 <div class="bet-slip-summary">{total_bet_summary}</div>
                             </div>
-                            """
-                        ).strip(),
-                        unsafe_allow_html=True,
-                    )
+                        </div>
+                        """
+                    ).strip(),
+                    unsafe_allow_html=True,
+                )
 
                 st.markdown('<div class="card-section-divider"></div>', unsafe_allow_html=True)
                 st.markdown('<div class="card-section-label">Model Probabilities</div>', unsafe_allow_html=True)
