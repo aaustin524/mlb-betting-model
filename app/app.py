@@ -169,6 +169,19 @@ def inject_app_styles():
                 linear-gradient(180deg, #0E1117 0%, #10141B 100%);
             color: var(--text);
         }
+        html, body, [data-testid="stAppViewContainer"], [data-testid="stMain"], .main {
+            background:
+                radial-gradient(circle at top left, rgba(46, 204, 113, 0.05), transparent 22%),
+                radial-gradient(circle at top right, rgba(243, 156, 18, 0.04), transparent 18%),
+                linear-gradient(180deg, #0E1117 0%, #10141B 100%) !important;
+            color: var(--text);
+        }
+        header[data-testid="stHeader"] {
+            background: rgba(14, 17, 23, 0) !important;
+        }
+        [data-testid="stDecoration"] {
+            display: none !important;
+        }
         .block-container {
             padding-top: 1.5rem;
             padding-bottom: 2rem;
