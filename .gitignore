@@ -7,3 +7,11 @@ db/*.sqlite
 data/raw/*
 data/processed/*
 data/models/*
+!data/teams.csv
+!data/pitcher_ratings.csv
+!data/hitter_ratings.csv
+!data/projected_lineups.csv
+!data/matchups.csv
+!data/park_factors.csv
+!data/stadium_locations.csv
+!data/team_weather_defaults.csv
