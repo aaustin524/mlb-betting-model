@@ -17,6 +17,44 @@ from utils.tracked_bets import (
 from model.clv_tracker import update_closing_lines
 
 
+def _render_empty_state(title, message, checklist):
+    """Render a clearer preseason/offseason empty state inside a section panel."""
+    checklist_html = "".join(f"<li>{item}</li>" for item in checklist)
+    st.markdown(
+        f"""
+        <div style="
+            margin-top: 0.5rem;
+            padding: 1rem 1.1rem;
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 16px;
+            background:
+                linear-gradient(135deg, rgba(18,24,38,0.96), rgba(10,14,24,0.96));
+        ">
+            <div style="
+                font-size: 0.82rem;
+                font-weight: 700;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+                color: #f7b267;
+                margin-bottom: 0.45rem;
+            ">{title}</div>
+            <div style="
+                color: rgba(255,255,255,0.86);
+                line-height: 1.5;
+                margin-bottom: 0.7rem;
+            ">{message}</div>
+            <ul style="
+                margin: 0;
+                padding-left: 1.1rem;
+                color: rgba(255,255,255,0.72);
+                line-height: 1.5;
+            ">{checklist_html}</ul>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def render_tracked_bet_lifecycle_summary():
     st.markdown('<div class="section-panel">', unsafe_allow_html=True)
     st.markdown('<div class="section-label">Tracked Bet Lifecycle</div>', unsafe_allow_html=True)
@@ -29,7 +67,15 @@ def render_tracked_bet_lifecycle_summary():
     lifecycle_df = build_tracked_bet_lifecycle_records(tracked_bets_df)
     summary = summarize_tracked_bet_lifecycle(lifecycle_df)
     if not summary:
-        st.info("No tracked bets with actionable side or total flags are available yet.")
+        _render_empty_state(
+            "Preseason / Offseason State",
+            "Tracked bet lifecycle coverage will stay quiet until the board starts saving actionable bets with live markets.",
+            [
+                "Daily board snapshots can still be saved now, but no lifecycle coverage appears until games produce playable side or total flags.",
+                "Once odds are live and tracked bets are stored, this section will monitor game linking, close-line capture, and grading coverage automatically.",
+                "During the season, this panel becomes the best place to spot unlinked bets or missing close lines.",
+            ],
+        )
         st.markdown('</div>', unsafe_allow_html=True)
         return
 
@@ -128,7 +174,15 @@ def render_clv_summary():
     clv_records_df = build_clv_market_records(tracked_bets_df)
     summary = summarize_clv_records(clv_records_df)
     if not summary:
-        st.info("No tracked CLV records are available yet. Save a board snapshot and update closing lines to start tracking.")
+        _render_empty_state(
+            "Waiting For Market History",
+            "CLV tracking needs an opening snapshot and a later closing line update, so preseason boards will usually stay empty here.",
+            [
+                "Save a Daily Board snapshot once real market odds are available.",
+                "Run the closing-line updater later in the day to capture the mature market.",
+                "After that, this section will show average side CLV, totals CLV, beat-close rate, and the recent trend table.",
+            ],
+        )
         st.markdown('</div>', unsafe_allow_html=True)
         return
 
@@ -197,13 +251,29 @@ def render_performance_summary(graded_results_path):
         return
 
     if graded_results_df.empty:
-        st.info("No graded results saved yet.")
+        _render_empty_state(
+            "No Settled Results Yet",
+            "Performance stays empty until tracked bets or saved snapshots have final scores and grading outcomes.",
+            [
+                "This is expected before Opening Day or anytime the current season has no completed bets yet.",
+                "Automatic grading will populate this section once linked games finish and results are written back to tracked bets.",
+                "Manual snapshot grading remains available in Workflow Tools if you want to backfill older boards.",
+            ],
+        )
         st.markdown('</div>', unsafe_allow_html=True)
         return
 
     summary = summarize_graded_results(graded_results_df)
     if not summary:
-        st.info("No graded bet outcomes available yet.")
+        _render_empty_state(
+            "Grades In Progress",
+            "Board history exists, but there are not enough settled bet outcomes yet to build a full performance summary.",
+            [
+                "Once side or total picks resolve as wins, losses, or pushes, this summary will populate automatically.",
+                "CLV averages and unit totals will update as soon as closing lines and final scores are available.",
+                "If this persists during the season, check Workflow Tools for pending grading or missing final scores.",
+            ],
+        )
         st.markdown('</div>', unsafe_allow_html=True)
         return
 
