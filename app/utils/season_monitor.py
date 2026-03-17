@@ -604,6 +604,134 @@ def _render_top_leader_cards(dataframe, value_column, subtitle_builder, value_fo
     st.markdown("".join(cards_html), unsafe_allow_html=True)
 
 
+def _format_monitor_table_value(column_name, value, formatters=None):
+    """Format leaderboard values for the custom dark table renderer."""
+    if value is None or pd.isna(value):
+        return "N/A"
+
+    if formatters and column_name in formatters:
+        return formatters[column_name](value)
+
+    return str(value)
+
+
+def _render_monitor_table_cell(column_name, value, formatters=None):
+    """Render one monitor table cell, using badges for key status fields."""
+    display_value = _format_monitor_table_value(column_name, value, formatters=formatters)
+
+    badge_palette = {
+        "Bullpen Status": {
+            "Fresh": ("#2ECC71", "rgba(46, 204, 113, 0.16)", "rgba(46, 204, 113, 0.30)"),
+            "Stable": ("#9BCB8F", "rgba(155, 203, 143, 0.15)", "rgba(155, 203, 143, 0.28)"),
+            "Watch": ("#F1C40F", "rgba(241, 196, 15, 0.14)", "rgba(241, 196, 15, 0.28)"),
+            "Stressed": ("#E67E22", "rgba(230, 126, 34, 0.14)", "rgba(230, 126, 34, 0.28)"),
+        },
+        "Lineup Confidence": {
+            "Full": ("#2ECC71", "rgba(46, 204, 113, 0.16)", "rgba(46, 204, 113, 0.30)"),
+            "Partial": ("#F1C40F", "rgba(241, 196, 15, 0.14)", "rgba(241, 196, 15, 0.28)"),
+            "Thin": ("#E67E22", "rgba(230, 126, 34, 0.14)", "rgba(230, 126, 34, 0.28)"),
+        },
+        "Model Driver": {
+            "Offense-Driven": ("#2ECC71", "rgba(46, 204, 113, 0.16)", "rgba(46, 204, 113, 0.30)"),
+            "Pitching-Driven": ("#7FC7FF", "rgba(127, 199, 255, 0.16)", "rgba(127, 199, 255, 0.28)"),
+            "Bullpen-Driven": ("#F39C12", "rgba(243, 156, 18, 0.16)", "rgba(243, 156, 18, 0.28)"),
+            "Balanced": ("#C5CBD8", "rgba(139, 147, 167, 0.14)", "rgba(139, 147, 167, 0.26)"),
+        },
+    }
+
+    if column_name in badge_palette and display_value in badge_palette[column_name]:
+        color, background, border = badge_palette[column_name][display_value]
+        return (
+            f'<span style="display:inline-flex;align-items:center;justify-content:center;'
+            f'padding:0.2rem 0.6rem;border-radius:999px;font-size:0.74rem;font-weight:700;'
+            f'white-space:nowrap;color:{color};background:{background};border:1px solid {border};">'
+            f"{display_value}</span>"
+        )
+
+    return display_value
+
+
+def _render_monitor_leaderboard_table(dataframe, columns, formatters=None):
+    """Render a dark, mobile-friendly leaderboard table for the Drivers tab."""
+    if dataframe is None or dataframe.empty:
+        st.info("No monitor rows are available yet.")
+        return
+
+    table_df = dataframe.loc[:, [column for column in columns if column in dataframe.columns]].copy()
+    rows_html = []
+    for _, row in table_df.iterrows():
+        cell_html = "".join(
+            dedent(
+                f"""
+                <div style="
+                    padding: 0.78rem 0.82rem;
+                    border-right: 1px solid rgba(255,255,255,0.06);
+                    color: rgba(255,255,255,0.88);
+                    font-size: 0.88rem;
+                    white-space: nowrap;
+                ">{_render_monitor_table_cell(column_name, row[column_name], formatters=formatters)}</div>
+                """
+            ).strip()
+            for column_name in table_df.columns
+        )
+        rows_html.append(
+            dedent(
+                f"""
+                <div style="
+                    display: grid;
+                    grid-template-columns: {' '.join(['minmax(110px, auto)' for _ in table_df.columns])};
+                    background: linear-gradient(180deg, #1B1F27 0%, #171B22 100%);
+                    border-bottom: 1px solid rgba(255,255,255,0.05);
+                ">{cell_html}</div>
+                """
+            ).strip()
+        )
+
+    header_html = "".join(
+        dedent(
+            f"""
+            <div style="
+                padding: 0.72rem 0.82rem;
+                color: rgba(255,255,255,0.62);
+                font-size: 0.72rem;
+                font-weight: 700;
+                letter-spacing: 0.08em;
+                text-transform: uppercase;
+                white-space: nowrap;
+                border-right: 1px solid rgba(255,255,255,0.08);
+            ">{column_name}</div>
+            """
+        ).strip()
+        for column_name in table_df.columns
+    )
+
+    st.markdown(
+        dedent(
+            f"""
+            <div style="
+                overflow-x: auto;
+                margin-top: 0.45rem;
+                border-radius: 18px;
+                border: 1px solid rgba(255,255,255,0.09);
+                background: linear-gradient(180deg, #161B22 0%, #131821 100%);
+                box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
+            ">
+                <div style="min-width: max-content;">
+                    <div style="
+                        display: grid;
+                        grid-template-columns: {' '.join(['minmax(110px, auto)' for _ in table_df.columns])};
+                        background: linear-gradient(180deg, #20242D 0%, #1A1E26 100%);
+                        border-bottom: 1px solid rgba(255,255,255,0.08);
+                    ">{header_html}</div>
+                    {''.join(rows_html)}
+                </div>
+            </div>
+            """
+        ).strip(),
+        unsafe_allow_html=True,
+    )
+
+
 def _render_top_five_leader_groups(leader_groups):
     if not leader_groups:
         return
@@ -1524,27 +1652,25 @@ def render_season_monitor(
                     subtitle_builder=lambda row: f"{row['Team']} | {row['Matchup']} | {row['Throws'] or 'N/A'} hand",
                     value_format=lambda value: f"{float(value):.3f}",
                 )
-                st.dataframe(
+                _render_monitor_leaderboard_table(
                     today_pitchers_view,
-                    hide_index=True,
-                    use_container_width=True,
-                    column_config={
-                        "Rank": st.column_config.NumberColumn("Rank", format="%d"),
-                        "Pitcher Score": st.column_config.NumberColumn("Pitcher Score", format="%.3f"),
-                        "Pitcher Rating": st.column_config.NumberColumn("Pitcher Rating", format="%.2f"),
-                        "FIP": st.column_config.NumberColumn("FIP", format="%.2f"),
+                    ["Rank", "Pitcher", "Team", "Matchup", "Throws", "Pitcher Score", "Pitcher Rating", "FIP"],
+                    formatters={
+                        "Rank": lambda value: f"{int(value)}",
+                        "Pitcher Score": lambda value: f"{float(value):.3f}",
+                        "Pitcher Rating": lambda value: f"{float(value):.2f}",
+                        "FIP": lambda value: f"{float(value):.2f}",
                     },
                 )
             st.markdown('<div class="monitor-expander-copy">League-wide starter quality reference.</div>', unsafe_allow_html=True)
-            st.dataframe(
+            _render_monitor_leaderboard_table(
                 pitcher_watch_view,
-                hide_index=True,
-                use_container_width=True,
-                column_config={
-                    "Rank": st.column_config.NumberColumn("Rank", format="%d"),
-                    "Pitcher Score": st.column_config.NumberColumn("Pitcher Score", format="%.3f"),
-                    "Pitcher Rating": st.column_config.NumberColumn("Pitcher Rating", format="%.2f"),
-                    "FIP": st.column_config.NumberColumn("FIP", format="%.2f"),
+                ["Rank", "Pitcher", "Team", "Throws", "Pitcher Score", "Pitcher Rating", "FIP"],
+                formatters={
+                    "Rank": lambda value: f"{int(value)}",
+                    "Pitcher Score": lambda value: f"{float(value):.3f}",
+                    "Pitcher Rating": lambda value: f"{float(value):.2f}",
+                    "FIP": lambda value: f"{float(value):.2f}",
                 },
             )
     with st.container():
@@ -1559,16 +1685,15 @@ def render_season_monitor(
                 subtitle_builder=lambda row: f"Adj {float(row['Lineup Adjustment']):.3f} | Hitters {int(row['Projected Hitters'])}",
                 value_format=lambda value: f"{float(value):.3f}",
             )
-            st.dataframe(
-                _style_monitor_table(lineup_monitor_view),
-                hide_index=True,
-                use_container_width=True,
-                column_config={
-                    "Rank": st.column_config.NumberColumn("Rank", format="%d"),
-                    "Lineup Score": st.column_config.NumberColumn("Lineup Score", format="%.3f"),
-                    "Lineup Adjustment": st.column_config.NumberColumn("Lineup Adjustment", format="%.3f"),
-                    "Offense Score": st.column_config.NumberColumn("Offense Score", format="%.3f"),
-                    "Projected Hitters": st.column_config.NumberColumn("Projected Hitters", format="%d"),
+            _render_monitor_leaderboard_table(
+                lineup_monitor_view,
+                ["Rank", "Team", "Lineup Score", "Lineup Adjustment", "Offense Score", "Projected Hitters", "Lineup Confidence"],
+                formatters={
+                    "Rank": lambda value: f"{int(value)}",
+                    "Lineup Score": lambda value: f"{float(value):.3f}",
+                    "Lineup Adjustment": lambda value: f"{float(value):.3f}",
+                    "Offense Score": lambda value: f"{float(value):.3f}",
+                    "Projected Hitters": lambda value: f"{int(value)}",
                 },
             )
     st.markdown('</div>', unsafe_allow_html=True)
@@ -1586,30 +1711,27 @@ def render_season_monitor(
                 subtitle_builder=lambda row: f"Fatigue {float(row['Fatigue Penalty']):.3f} | IP last 3 {float(row['Relief IP Last 3']):.1f}",
                 value_format=lambda value: f"{float(value):.3f}",
             )
-            st.dataframe(
-                _style_monitor_table(bullpen_leaders_view),
-                hide_index=True,
-                use_container_width=True,
-                column_config={
-                    "Rank": st.column_config.NumberColumn("Rank", format="%d"),
-                    "Bullpen Score": st.column_config.NumberColumn("Bullpen Score", format="%.3f"),
-                    "Bullpen Rating": st.column_config.NumberColumn("Bullpen Rating", format="%.3f"),
-                    "Fatigue Penalty": st.column_config.NumberColumn("Fatigue Penalty", format="%.3f"),
-                    "Relief IP Last 3": st.column_config.NumberColumn("Relief IP Last 3", format="%.1f"),
+            _render_monitor_leaderboard_table(
+                bullpen_leaders_view,
+                ["Rank", "Team", "Bullpen Score", "Bullpen Rating", "Fatigue Penalty", "Relief IP Last 3", "Bullpen Status"],
+                formatters={
+                    "Rank": lambda value: f"{int(value)}",
+                    "Bullpen Score": lambda value: f"{float(value):.3f}",
+                    "Bullpen Rating": lambda value: f"{float(value):.3f}",
+                    "Fatigue Penalty": lambda value: f"{float(value):.3f}",
+                    "Relief IP Last 3": lambda value: f"{float(value):.1f}",
                 },
             )
         with right_col:
-            st.dataframe(
-                _style_monitor_table(bullpen_stress_view),
-                hide_index=True,
-                use_container_width=True,
-                column_config={
-                    "Rank": st.column_config.NumberColumn("Rank", format="%d"),
-                    "Bullpen Score": st.column_config.NumberColumn("Bullpen Score", format="%.3f"),
-                    "Bullpen Rating": st.column_config.NumberColumn("Bullpen Rating", format="%.3f"),
-                    "Fatigue Penalty": st.column_config.NumberColumn("Fatigue Penalty", format="%.3f"),
-                    "Relief IP Last 3": st.column_config.NumberColumn("Relief IP Last 3", format="%.1f"),
-                    "Adjusted Bullpen": st.column_config.NumberColumn("Adjusted Bullpen", format="%.3f"),
+            _render_monitor_leaderboard_table(
+                bullpen_stress_view,
+                ["Rank", "Team", "Fatigue Penalty", "Relief IP Last 3", "Adjusted Bullpen", "Bullpen Score", "Bullpen Status"],
+                formatters={
+                    "Rank": lambda value: f"{int(value)}",
+                    "Fatigue Penalty": lambda value: f"{float(value):.3f}",
+                    "Relief IP Last 3": lambda value: f"{float(value):.1f}",
+                    "Adjusted Bullpen": lambda value: f"{float(value):.3f}",
+                    "Bullpen Score": lambda value: f"{float(value):.3f}",
                 },
             )
 
@@ -1630,17 +1752,16 @@ def render_season_monitor(
                 ).strip(),
                 unsafe_allow_html=True,
             )
-            st.dataframe(
+            _render_monitor_leaderboard_table(
                 model_movers_view,
-                hide_index=True,
-                use_container_width=True,
-                column_config={
-                    "Rank": st.column_config.NumberColumn("Rank", format="%d"),
-                    "Power Score": st.column_config.NumberColumn("Power Score", format="%.3f"),
-                    "Offense Score": st.column_config.NumberColumn("Offense Score", format="%.3f"),
-                    "Pitching Score": st.column_config.NumberColumn("Pitching Score", format="%.3f"),
-                    "Bullpen Score": st.column_config.NumberColumn("Bullpen Score", format="%.3f"),
-                    "Volatility Score": st.column_config.NumberColumn("Volatility Score", format="%.3f"),
+                ["Rank", "Team", "Model Driver", "Power Score", "Offense Score", "Pitching Score", "Bullpen Score", "Volatility Score"],
+                formatters={
+                    "Rank": lambda value: f"{int(value)}",
+                    "Power Score": lambda value: f"{float(value):.3f}",
+                    "Offense Score": lambda value: f"{float(value):.3f}",
+                    "Pitching Score": lambda value: f"{float(value):.3f}",
+                    "Bullpen Score": lambda value: f"{float(value):.3f}",
+                    "Volatility Score": lambda value: f"{float(value):.3f}",
                 },
             )
             st.markdown('</div>', unsafe_allow_html=True)
@@ -1655,18 +1776,17 @@ def render_season_monitor(
                 ).strip(),
                 unsafe_allow_html=True,
             )
-            st.dataframe(
+            _render_monitor_leaderboard_table(
                 projected_standings_view,
-                hide_index=True,
-                use_container_width=True,
-                column_config={
-                    "Rank": st.column_config.NumberColumn("Rank", format="%d"),
-                    "Power Score": st.column_config.NumberColumn("Power Score", format="%.3f"),
-                    "Projected Win %": st.column_config.NumberColumn("Projected Win %", format="%.3f"),
-                    "Projected Wins": st.column_config.NumberColumn("Projected Wins", format="%.1f"),
-                    "Offense Score": st.column_config.NumberColumn("Offense Score", format="%.3f"),
-                    "Pitching Score": st.column_config.NumberColumn("Pitching Score", format="%.3f"),
-                    "Bullpen Score": st.column_config.NumberColumn("Bullpen Score", format="%.3f"),
+                ["Rank", "Team", "Power Score", "Projected Win %", "Projected Wins", "Offense Score", "Pitching Score", "Bullpen Score"],
+                formatters={
+                    "Rank": lambda value: f"{int(value)}",
+                    "Power Score": lambda value: f"{float(value):.3f}",
+                    "Projected Win %": lambda value: f"{float(value):.3f}",
+                    "Projected Wins": lambda value: f"{float(value):.1f}",
+                    "Offense Score": lambda value: f"{float(value):.3f}",
+                    "Pitching Score": lambda value: f"{float(value):.3f}",
+                    "Bullpen Score": lambda value: f"{float(value):.3f}",
                 },
             )
             st.markdown('</div>', unsafe_allow_html=True)
