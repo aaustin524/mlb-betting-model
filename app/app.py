@@ -1265,6 +1265,116 @@ def inject_app_styles():
                 grid-template-columns: 1fr;
             }
         }
+        @media (max-width: 720px) {
+            .block-container {
+                padding-top: 0.85rem;
+                padding-bottom: 1.3rem;
+                padding-left: 0.7rem;
+                padding-right: 0.7rem;
+            }
+            .hero-panel,
+            .section-panel,
+            .board-card,
+            .top-strip-card,
+            .best-bet-card,
+            .monitor-hero,
+            .toolbar-shell,
+            .global-status-strip {
+                border-radius: 16px;
+            }
+            .hero-panel,
+            .section-panel,
+            .monitor-hero,
+            .global-status-strip,
+            .toolbar-shell {
+                padding-left: 0.8rem;
+                padding-right: 0.8rem;
+            }
+            .hero-grid {
+                grid-template-columns: 1fr;
+                gap: 0.75rem;
+            }
+            .hero-title {
+                font-size: 1.75rem;
+                line-height: 1.1;
+            }
+            .hero-subtitle,
+            .monitor-copy,
+            .section-subtitle,
+            .toolbar-note {
+                font-size: 0.84rem;
+            }
+            .sticky-summary-shell {
+                position: static;
+            }
+            .board-card {
+                padding: 0.7rem 0.75rem 0.78rem;
+            }
+            .board-topline {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.45rem;
+                margin-bottom: 0.65rem;
+            }
+            .board-status-badge {
+                margin-left: 0;
+            }
+            .board-matchup {
+                font-size: 1.12rem;
+                line-height: 1.2;
+            }
+            .board-subtle,
+            .card-note,
+            .bet-slip-summary,
+            .top-strip-meta,
+            .top-play-meta,
+            .top-play-matchup {
+                font-size: 0.8rem;
+            }
+            .board-status-row,
+            .chips-row,
+            .card-pill-row,
+            .freshness-pills {
+                gap: 0.35rem;
+            }
+            .signal-badge,
+            .favorite-badge,
+            .angle-badge,
+            .freshness-pill {
+                font-size: 0.69rem;
+                line-height: 1.2;
+            }
+            .score-ribbon,
+            .bet-slip-card,
+            .board-view-card,
+            .market-cell,
+            .meta-pill,
+            .team-profile-metric,
+            .monitor-note-card {
+                padding: 0.72rem 0.78rem;
+            }
+            .score-ribbon-value,
+            .top-play-pick,
+            .top-strip-title,
+            .leader-name {
+                font-size: 0.96rem;
+            }
+            .probability-line {
+                grid-template-columns: minmax(84px, 1fr) 52px minmax(92px, 1fr);
+                gap: 0.45rem;
+                padding: 0.52rem 0.6rem;
+            }
+            .probability-team,
+            .probability-value,
+            .market-value,
+            .meta-value,
+            .team-profile-value {
+                font-size: 0.84rem;
+            }
+            .card-section-divider {
+                margin-top: 0.65rem;
+            }
+        }
         </style>
         """,
         unsafe_allow_html=True,
@@ -2775,10 +2885,10 @@ def render_board_view_controls(display_df):
         unsafe_allow_html=True,
     )
 
-    left_col, right_col = st.columns([1.45, 0.75])
+    left_col, right_col = st.columns([1.2, 0.8])
     with left_col:
         st.markdown('<div class="board-view-card">', unsafe_allow_html=True)
-        control_col_1, control_col_2, control_col_3, control_col_4 = st.columns(4)
+        control_col_1, control_col_2 = st.columns(2)
         with control_col_1:
             signal_filter = st.selectbox(
                 "Signal",
@@ -2791,6 +2901,7 @@ def render_board_view_controls(display_df):
                 ["All Angles", "Side Angles", "Total Angles", "Favorite Sides", "Underdog Sides"],
                 key="board_angle_filter",
             )
+        control_col_3, control_col_4 = st.columns(2)
         with control_col_3:
             sort_option = st.selectbox(
                 "Sort",
@@ -2812,7 +2923,7 @@ def render_board_view_controls(display_df):
                 horizontal=True,
             )
 
-        filter_col_1, filter_col_2, filter_col_3 = st.columns(3)
+        filter_col_1, filter_col_2 = st.columns(2)
         with filter_col_1:
             side_value_filter = st.selectbox(
                 "Side Value",
@@ -2825,7 +2936,8 @@ def render_board_view_controls(display_df):
                 ["All Total Angles", "Over Value", "Under Value", "No Total Angle"],
                 key="board_total_value_filter",
             )
-        with filter_col_3:
+        sportsbook_col, _ = st.columns([1.2, 0.8])
+        with sportsbook_col:
             sportsbook_options = ["All Sportsbooks"] + sorted(
                 {
                     str(book)
@@ -3086,14 +3198,15 @@ def render_controls_panel():
 def render_summary_metrics(display_df):
     st.markdown('<div class="sticky-summary-shell"><div class="section-panel">', unsafe_allow_html=True)
     summary = build_summary_metrics(display_df)
-    metric_col_1, metric_col_2, metric_col_3, metric_col_4 = st.columns(4)
-    with metric_col_1:
+    metric_row_1_col_1, metric_row_1_col_2 = st.columns(2)
+    with metric_row_1_col_1:
         st.metric("Games Today", summary["games_today"])
-    with metric_col_2:
+    with metric_row_1_col_2:
         st.metric("Strongest EV", summary["strongest_ev"], summary["strongest_ev_delta"])
-    with metric_col_3:
+    metric_row_2_col_1, metric_row_2_col_2 = st.columns(2)
+    with metric_row_2_col_1:
         st.metric("Playable Side Bets", summary["playable_bets"])
-    with metric_col_4:
+    with metric_row_2_col_2:
         st.metric("Playable Total Bets", summary["playable_total_bets"])
     st.markdown('</div></div>', unsafe_allow_html=True)
 
@@ -3107,23 +3220,24 @@ def render_top_plays_today(display_df, top_plays_df):
     )
 
     top_strip_items = build_top_plays_today_items(display_df, top_plays_df)
-    strip_columns = st.columns(len(top_strip_items))
-
-    for idx, item in enumerate(top_strip_items):
-        with strip_columns[idx]:
-            st.markdown(
-                dedent(
-                    f"""
-                    <div class="top-strip-card {item['tone']}">
-                        <div class="top-strip-label {item['tone']}">{item['label']}</div>
-                        <div class="top-strip-title">{item['title']}</div>
-                        <div class="top-strip-edge">{item['edge_text']}</div>
-                        <div class="top-strip-meta">{item['supporting_text']}</div>
-                    </div>
-                    """
-                ).strip(),
-                unsafe_allow_html=True,
-            )
+    for start_idx in range(0, len(top_strip_items), 2):
+        row_items = top_strip_items[start_idx:start_idx + 2]
+        strip_columns = st.columns(len(row_items))
+        for column, item in zip(strip_columns, row_items):
+            with column:
+                st.markdown(
+                    dedent(
+                        f"""
+                        <div class="top-strip-card {item['tone']}">
+                            <div class="top-strip-label {item['tone']}">{item['label']}</div>
+                            <div class="top-strip-title">{item['title']}</div>
+                            <div class="top-strip-edge">{item['edge_text']}</div>
+                            <div class="top-strip-meta">{item['supporting_text']}</div>
+                        </div>
+                        """
+                    ).strip(),
+                    unsafe_allow_html=True,
+                )
 
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -3231,18 +3345,17 @@ def render_action_bar(download_csv, display_df, top_plays_df, run_dispersion):
         unsafe_allow_html=True,
     )
     st.markdown('<div class="toolbar-shell">', unsafe_allow_html=True)
-    action_col_1, action_col_2, action_col_3, action_col_4, action_col_5, action_col_6 = st.columns([4, 1, 1, 1, 1, 1])
+    st.markdown(
+        '<div class="toolbar-note">Board inputs stay editable while projections, favorite flags, and exported results remain synced to the latest simulation output.</div>',
+        unsafe_allow_html=True,
+    )
 
-    with action_col_1:
-        st.markdown(
-            '<div class="toolbar-note">Board inputs stay editable while projections, favorite flags, and exported results remain synced to the latest simulation output.</div>',
-            unsafe_allow_html=True,
-        )
-    with action_col_2:
+    action_row_1_col_1, action_row_1_col_2, action_row_1_col_3 = st.columns(3)
+    with action_row_1_col_1:
         if st.button("Refresh Board", use_container_width=True):
             reload_automated_inputs(force_refresh=True)
             st.rerun()
-    with action_col_3:
+    with action_row_1_col_2:
         if st.button("Refresh Simulations", use_container_width=True):
             st.cache_data.clear()
             set_board_timestamp("simulation_last_updated")
@@ -3251,7 +3364,7 @@ def render_action_bar(download_csv, display_df, top_plays_df, run_dispersion):
                 "Simulation cache cleared. Matchups will recompute on the next render.",
             )
             st.rerun()
-    with action_col_4:
+    with action_row_1_col_3:
         if st.button("Load Live Odds", use_container_width=True):
             try:
                 odds_map = fetch_live_odds()
@@ -3276,7 +3389,9 @@ def render_action_bar(download_csv, display_df, top_plays_df, run_dispersion):
             except Exception as exc:
                 st.session_state["odds_status"] = ("error", f"Live odds load failed: {exc}")
                 st.rerun()
-    with action_col_5:
+
+    action_row_2_col_1, action_row_2_col_2 = st.columns(2)
+    with action_row_2_col_1:
         if st.button("Save Board Snapshot", use_container_width=True):
             try:
                 board_snapshot_path = save_board_snapshot(display_df, run_dispersion)
@@ -3288,7 +3403,7 @@ def render_action_bar(download_csv, display_df, top_plays_df, run_dispersion):
             except Exception as exc:
                 st.session_state["snapshot_status"] = ("error", f"Snapshot save failed: {exc}")
             st.rerun()
-    with action_col_6:
+    with action_row_2_col_2:
         st.download_button(
             label="Download CSV",
             data=download_csv,
