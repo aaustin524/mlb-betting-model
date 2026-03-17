@@ -658,39 +658,10 @@ def _render_monitor_leaderboard_table(dataframe, columns, formatters=None):
         return
 
     table_df = dataframe.loc[:, [column for column in columns if column in dataframe.columns]].copy()
-    rows_html = []
-    for _, row in table_df.iterrows():
-        cell_html = "".join(
-            dedent(
-                f"""
-                <div style="
-                    padding: 0.78rem 0.82rem;
-                    border-right: 1px solid rgba(255,255,255,0.06);
-                    color: rgba(255,255,255,0.88);
-                    font-size: 0.88rem;
-                    white-space: nowrap;
-                ">{_render_monitor_table_cell(column_name, row[column_name], formatters=formatters)}</div>
-                """
-            ).strip()
-            for column_name in table_df.columns
-        )
-        rows_html.append(
-            dedent(
-                f"""
-                <div style="
-                    display: grid;
-                    grid-template-columns: {' '.join(['minmax(110px, auto)' for _ in table_df.columns])};
-                    background: linear-gradient(180deg, #1B1F27 0%, #171B22 100%);
-                    border-bottom: 1px solid rgba(255,255,255,0.05);
-                ">{cell_html}</div>
-                """
-            ).strip()
-        )
-
     header_html = "".join(
         dedent(
             f"""
-            <div style="
+            <th style="
                 padding: 0.72rem 0.82rem;
                 color: rgba(255,255,255,0.62);
                 font-size: 0.72rem;
@@ -698,12 +669,40 @@ def _render_monitor_leaderboard_table(dataframe, columns, formatters=None):
                 letter-spacing: 0.08em;
                 text-transform: uppercase;
                 white-space: nowrap;
-                border-right: 1px solid rgba(255,255,255,0.08);
-            ">{column_name}</div>
+                text-align: left;
+                border-bottom: 1px solid rgba(255,255,255,0.08);
+                background: linear-gradient(180deg, #20242D 0%, #1A1E26 100%);
+            ">{column_name}</th>
             """
         ).strip()
         for column_name in table_df.columns
     )
+
+    rows_html = []
+    for _, row in table_df.iterrows():
+        cell_html = "".join(
+            dedent(
+                f"""
+                <td style="
+                    padding: 0.78rem 0.82rem;
+                    color: rgba(255,255,255,0.88);
+                    font-size: 0.88rem;
+                    white-space: nowrap;
+                    border-bottom: 1px solid rgba(255,255,255,0.05);
+                ">{_render_monitor_table_cell(column_name, row[column_name], formatters=formatters)}</td>
+                """
+            ).strip()
+            for column_name in table_df.columns
+        )
+        rows_html.append(
+            dedent(
+                f"""
+                <tr style="background: linear-gradient(180deg, #1B1F27 0%, #171B22 100%);">
+                    {cell_html}
+                </tr>
+                """
+            ).strip()
+        )
 
     st.markdown(
         dedent(
@@ -716,15 +715,19 @@ def _render_monitor_leaderboard_table(dataframe, columns, formatters=None):
                 background: linear-gradient(180deg, #161B22 0%, #131821 100%);
                 box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
             ">
-                <div style="min-width: max-content;">
-                    <div style="
-                        display: grid;
-                        grid-template-columns: {' '.join(['minmax(110px, auto)' for _ in table_df.columns])};
-                        background: linear-gradient(180deg, #20242D 0%, #1A1E26 100%);
-                        border-bottom: 1px solid rgba(255,255,255,0.08);
-                    ">{header_html}</div>
-                    {''.join(rows_html)}
-                </div>
+                <table style="
+                    min-width: 100%;
+                    width: max-content;
+                    border-collapse: collapse;
+                    table-layout: auto;
+                ">
+                    <thead>
+                        <tr>{header_html}</tr>
+                    </thead>
+                    <tbody>
+                        {''.join(rows_html)}
+                    </tbody>
+                </table>
             </div>
             """
         ).strip(),
