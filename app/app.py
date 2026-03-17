@@ -414,7 +414,7 @@ def inject_app_styles():
             border: 1px solid var(--border);
             border-radius: 18px;
             padding: 0.7rem 0.85rem 0.8rem;
-            margin-bottom: 0.65rem;
+            margin-bottom: 0;
             box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
         }
         .board-card-shell {
@@ -422,14 +422,15 @@ def inject_app_styles():
             overflow: hidden;
             border-radius: 18px;
             background: transparent;
+            margin-bottom: 0.65rem;
         }
         .board-card-stripe {
             position: absolute;
-            left: 0;
-            top: 0;
-            bottom: 0;
-            width: 6px;
-            border-radius: 18px 0 0 18px;
+            left: 1px;
+            top: 1px;
+            bottom: 1px;
+            width: 5px;
+            border-radius: 17px 0 0 17px;
             background: #5F6675;
             z-index: 2;
         }
