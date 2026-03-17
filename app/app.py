@@ -1309,7 +1309,7 @@ def get_odds_api_key():
     """
     try:
         odds_api_key = st.secrets[ODDS_API_KEY_ENV_VAR]
-    except KeyError:
+    except Exception:
         odds_api_key = os.getenv(ODDS_API_KEY_ENV_VAR)
     return odds_api_key
 
