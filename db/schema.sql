@@ -62,10 +62,19 @@ CREATE TABLE IF NOT EXISTS odds_snapshots (
     snapshot_time TEXT NOT NULL,
     home_moneyline INTEGER,
     away_moneyline INTEGER,
+    total_line REAL,
+    over_price INTEGER,
+    under_price INTEGER,
     FOREIGN KEY (game_id) REFERENCES games (game_id)
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_odds_snapshots_unique
+ON odds_snapshots (game_id, sportsbook_name, snapshot_time);
+
+CREATE INDEX IF NOT EXISTS idx_odds_snapshots_game_time
+ON odds_snapshots (game_id, snapshot_time);
+
+CREATE INDEX IF NOT EXISTS idx_odds_snapshots_game_book_time
 ON odds_snapshots (game_id, sportsbook_name, snapshot_time);
 
 CREATE TABLE IF NOT EXISTS model_features (
@@ -108,5 +117,59 @@ CREATE TABLE IF NOT EXISTS predictions (
     edge_away REAL,
     recommended_side TEXT,
     recommended_bet INTEGER,
+    FOREIGN KEY (game_id) REFERENCES games (game_id)
+);
+
+CREATE TABLE IF NOT EXISTS tracked_bets (
+    tracking_id INTEGER PRIMARY KEY,
+    tracking_key TEXT NOT NULL UNIQUE,
+    grading_key TEXT,
+    game_id INTEGER,
+    game_match_method TEXT,
+    snapshot_timestamp TEXT NOT NULL,
+    snapshot_date TEXT,
+    snapshot_type TEXT,
+    data_mode TEXT,
+    run_dispersion REAL,
+    away_team TEXT NOT NULL,
+    home_team TEXT NOT NULL,
+    sportsbook TEXT,
+    best_bet TEXT,
+    bet_flag TEXT,
+    best_total_bet TEXT,
+    total_bet_flag TEXT,
+    away_moneyline INTEGER,
+    home_moneyline INTEGER,
+    total_line REAL,
+    over_price INTEGER,
+    under_price INTEGER,
+    open_home_ml INTEGER,
+    open_away_ml INTEGER,
+    open_total REAL,
+    open_over_price INTEGER,
+    open_under_price INTEGER,
+    close_home_ml INTEGER,
+    close_away_ml INTEGER,
+    close_total REAL,
+    close_over_price INTEGER,
+    close_under_price INTEGER,
+    clv_side REAL,
+    clv_total REAL,
+    clv_side_line_diff REAL,
+    clv_total_line_diff REAL,
+    market_timestamp_open TEXT,
+    market_timestamp_close TEXT,
+    final_away_runs REAL,
+    final_home_runs REAL,
+    side_pick_outcome TEXT,
+    total_pick_outcome TEXT,
+    side_units REAL,
+    total_units REAL,
+    grading_status TEXT DEFAULT 'ungraded',
+    grading_source TEXT,
+    graded_timestamp TEXT,
+    grading_note TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (game_id) REFERENCES games (game_id)
 );

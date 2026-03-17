@@ -192,3 +192,40 @@ Each saved prediction includes:
 - `away_win_prob`
 
 The script replaces older rows for the same `game_id` and `model_version` so reruns stay clean.
+
+## Render Deployment
+
+If you want a shareable URL without managing your own server, Render is a good fit for this project.
+
+This repo now includes:
+
+- [`render.yaml`](/Users/aaust/OneDrive/Documents/GitHub/mlb-betting-model/render.yaml) for a Render web service
+- [`.streamlit/config.toml`](/Users/aaust/OneDrive/Documents/GitHub/mlb-betting-model/.streamlit/config.toml) for headless production startup
+- [`.streamlit/secrets.toml.example`](/Users/aaust/OneDrive/Documents/GitHub/mlb-betting-model/.streamlit/secrets.toml.example) as a local secrets template
+- environment-variable support for:
+  - `MLB_MODEL_DB_PATH`
+  - `MLB_MODEL_HISTORY_DIR`
+
+Recommended Render setup:
+
+1. Push this repo to GitHub.
+2. In Render, create a new Blueprint or Web Service from the repo.
+3. Attach a persistent disk mounted at `/var/data`.
+4. Set these environment variables in Render:
+   - `ODDS_API_KEY`
+   - `MLB_MODEL_DB_PATH=/var/data/mlb_betting_model.sqlite`
+   - `MLB_MODEL_HISTORY_DIR=/var/data/history`
+5. Deploy the service.
+
+The Streamlit start command used by Render is:
+
+```bash
+streamlit run app/app.py --server.address 0.0.0.0 --server.port $PORT
+```
+
+Notes:
+
+- SQLite and snapshot history need persistent disk. Do not use an ephemeral filesystem for production data.
+- The local file [`.streamlit/secrets.toml`](/Users/aaust/OneDrive/Documents/GitHub/mlb-betting-model/.streamlit/secrets.toml) should not be relied on in Render. Use Render environment variables instead.
+- For local development, copy [`.streamlit/secrets.toml.example`](/Users/aaust/OneDrive/Documents/GitHub/mlb-betting-model/.streamlit/secrets.toml.example) to [`.streamlit/secrets.toml`](/Users/aaust/OneDrive/Documents/GitHub/mlb-betting-model/.streamlit/secrets.toml) and add your key there.
+- If the current `ODDS_API_KEY` in local secrets was ever committed or shared, rotate it before deploying.

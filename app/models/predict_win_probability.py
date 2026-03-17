@@ -11,7 +11,7 @@ from typing import Any
 
 import pandas as pd
 
-from app.config import DB_PATH
+from project_config import DB_PATH
 from app.db.schema import initialize_database
 from app.models.train_win_probability import BASE_FEATURE_COLUMNS, MODEL_PATH
 

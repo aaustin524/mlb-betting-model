@@ -1,4 +1,4 @@
-"""Load MLB moneyline odds into the odds_snapshots table."""
+"""Load MLB moneyline and totals odds into the odds_snapshots table."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from typing import Any
 
 import requests
 
-from app.config import DB_PATH
+from project_config import DB_PATH
 from app.db.connection import get_connection
 from app.db.schema import initialize_database
 
@@ -18,7 +18,7 @@ LOGGER = logging.getLogger(__name__)
 ODDS_API_BASE_URL = "https://api.the-odds-api.com/v4/sports/baseball_mlb/odds"
 REQUEST_TIMEOUT = 30
 DEFAULT_REGIONS = "us"
-DEFAULT_MARKETS = "h2h"
+DEFAULT_MARKETS = "h2h,totals"
 DEFAULT_ODDS_FORMAT = "american"
 
 
@@ -66,7 +66,7 @@ def get_api_key() -> str:
 
 
 def fetch_odds_payload(api_key: str, regions: str) -> list[dict[str, Any]]:
-    """Fetch current MLB moneyline odds from The Odds API."""
+    """Fetch current MLB moneyline and totals odds from The Odds API."""
     params = {
         "apiKey": api_key,
         "regions": regions,
@@ -137,6 +137,31 @@ def extract_moneylines(outcomes: list[dict[str, Any]], home_team: str, away_team
     return home_moneyline, away_moneyline
 
 
+def extract_totals(outcomes: list[dict[str, Any]]) -> tuple[float | None, int | None, int | None]:
+    """Read the total line and prices from one bookmaker totals market."""
+    total_line = None
+    over_price = None
+    under_price = None
+
+    for outcome in outcomes:
+        outcome_name = outcome.get("name")
+        outcome_price = outcome.get("price")
+        outcome_point = outcome.get("point")
+
+        if outcome_name == "Over":
+            if outcome_point is not None:
+                total_line = float(outcome_point)
+            if outcome_price is not None:
+                over_price = int(float(outcome_price))
+        elif outcome_name == "Under":
+            if total_line is None and outcome_point is not None:
+                total_line = float(outcome_point)
+            if outcome_price is not None:
+                under_price = int(float(outcome_price))
+
+    return total_line, over_price, under_price
+
+
 def build_odds_rows(
     payload: list[dict[str, Any]],
     game_lookup: dict[tuple[str, str, str], int],
@@ -171,6 +196,13 @@ def build_odds_rows(
 
             outcomes = moneyline_market.get("outcomes", [])
             home_moneyline, away_moneyline = extract_moneylines(outcomes, str(home_team), str(away_team))
+            totals_market = next((market for market in markets if market.get("key") == "totals"), None)
+            total_line = None
+            over_price = None
+            under_price = None
+            if totals_market is not None:
+                total_line, over_price, under_price = extract_totals(totals_market.get("outcomes", []))
+
             if sportsbook_name is None or home_moneyline is None or away_moneyline is None:
                 skipped_count += 1
                 continue
@@ -182,6 +214,9 @@ def build_odds_rows(
                     "snapshot_time": snapshot_time,
                     "home_moneyline": home_moneyline,
                     "away_moneyline": away_moneyline,
+                    "total_line": total_line,
+                    "over_price": over_price,
+                    "under_price": under_price,
                 }
             )
 
@@ -235,14 +270,20 @@ def insert_odds_rows(rows: list[dict[str, Any]]) -> tuple[int, int]:
                 sportsbook_name,
                 snapshot_time,
                 home_moneyline,
-                away_moneyline
+                away_moneyline,
+                total_line,
+                over_price,
+                under_price
             )
             VALUES (
                 :game_id,
                 :sportsbook_name,
                 :snapshot_time,
                 :home_moneyline,
-                :away_moneyline
+                :away_moneyline,
+                :total_line,
+                :over_price,
+                :under_price
             )
             """,
             rows_to_insert,
@@ -253,7 +294,7 @@ def insert_odds_rows(rows: list[dict[str, Any]]) -> tuple[int, int]:
 
 
 def load_odds_feed(start_date: str | None = None, end_date: str | None = None, regions: str = DEFAULT_REGIONS) -> int:
-    """Fetch MLB moneyline odds and save them into odds_snapshots."""
+    """Fetch MLB moneyline and totals odds and save them into odds_snapshots."""
     initialize_database()
     api_key = get_api_key()
     payload = fetch_odds_payload(api_key, regions)

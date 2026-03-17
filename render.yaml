@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: mlb-betting-model
+    env: python
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: streamlit run app/app.py --server.address 0.0.0.0 --server.port $PORT
+    envVars:
+      - key: ODDS_API_KEY
+        sync: false
+      - key: MLB_MODEL_DB_PATH
+        value: /var/data/mlb_betting_model.sqlite
+      - key: MLB_MODEL_HISTORY_DIR
+        value: /var/data/history
+    disk:
+      name: mlb-betting-data
+      mountPath: /var/data
+      sizeGB: 1

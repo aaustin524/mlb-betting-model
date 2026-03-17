@@ -15,7 +15,7 @@ from sklearn.metrics import accuracy_score, log_loss, roc_auc_score
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 
-from app.config import DB_PATH, MODEL_DIR
+from project_config import DB_PATH, MODEL_DIR
 from app.db.schema import initialize_database
 from app.features.build_game_features import build_game_features
 

@@ -1,5 +1,5 @@
 import sqlite3
-from app.config import DB_PATH
+from project_config import DB_PATH
 
 
 def show_predictions(limit: int = 10):

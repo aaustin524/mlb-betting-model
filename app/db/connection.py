@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sqlite3
 
-from app.config import DB_PATH
+from project_config import DB_PATH
 
 
 def get_connection() -> sqlite3.Connection:

@@ -9,7 +9,7 @@ from typing import Any
 
 import pandas as pd
 
-from app.config import DB_PATH
+from project_config import DB_PATH
 from app.db.schema import initialize_database
 
 LOGGER = logging.getLogger(__name__)

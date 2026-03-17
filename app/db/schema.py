@@ -5,7 +5,7 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-from app.config import DB_PATH
+from project_config import DB_PATH
 
 
 SCHEMA_SQL = """
@@ -70,10 +70,19 @@ CREATE TABLE IF NOT EXISTS odds_snapshots (
     snapshot_time TEXT NOT NULL,
     home_moneyline INTEGER,
     away_moneyline INTEGER,
+    total_line REAL,
+    over_price INTEGER,
+    under_price INTEGER,
     FOREIGN KEY (game_id) REFERENCES games (game_id)
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_odds_snapshots_unique
+ON odds_snapshots (game_id, sportsbook_name, snapshot_time);
+
+CREATE INDEX IF NOT EXISTS idx_odds_snapshots_game_time
+ON odds_snapshots (game_id, snapshot_time);
+
+CREATE INDEX IF NOT EXISTS idx_odds_snapshots_game_book_time
 ON odds_snapshots (game_id, sportsbook_name, snapshot_time);
 
 CREATE TABLE IF NOT EXISTS model_features (
@@ -118,6 +127,60 @@ CREATE TABLE IF NOT EXISTS predictions (
     recommended_bet INTEGER,
     FOREIGN KEY (game_id) REFERENCES games (game_id)
 );
+
+CREATE TABLE IF NOT EXISTS tracked_bets (
+    tracking_id INTEGER PRIMARY KEY,
+    tracking_key TEXT NOT NULL UNIQUE,
+    grading_key TEXT,
+    game_id INTEGER,
+    game_match_method TEXT,
+    snapshot_timestamp TEXT NOT NULL,
+    snapshot_date TEXT,
+    snapshot_type TEXT,
+    data_mode TEXT,
+    run_dispersion REAL,
+    away_team TEXT NOT NULL,
+    home_team TEXT NOT NULL,
+    sportsbook TEXT,
+    best_bet TEXT,
+    bet_flag TEXT,
+    best_total_bet TEXT,
+    total_bet_flag TEXT,
+    away_moneyline INTEGER,
+    home_moneyline INTEGER,
+    total_line REAL,
+    over_price INTEGER,
+    under_price INTEGER,
+    open_home_ml INTEGER,
+    open_away_ml INTEGER,
+    open_total REAL,
+    open_over_price INTEGER,
+    open_under_price INTEGER,
+    close_home_ml INTEGER,
+    close_away_ml INTEGER,
+    close_total REAL,
+    close_over_price INTEGER,
+    close_under_price INTEGER,
+    clv_side REAL,
+    clv_total REAL,
+    clv_side_line_diff REAL,
+    clv_total_line_diff REAL,
+    market_timestamp_open TEXT,
+    market_timestamp_close TEXT,
+    final_away_runs REAL,
+    final_home_runs REAL,
+    side_pick_outcome TEXT,
+    total_pick_outcome TEXT,
+    side_units REAL,
+    total_units REAL,
+    grading_status TEXT DEFAULT 'ungraded',
+    grading_source TEXT,
+    graded_timestamp TEXT,
+    grading_note TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (game_id) REFERENCES games (game_id)
+);
 """
 
 MODEL_FEATURE_COLUMNS = {
@@ -142,6 +205,69 @@ MODEL_FEATURE_COLUMNS = {
     "target_home_win": "INTEGER",
 }
 
+ODDS_SNAPSHOTS_COLUMNS = {
+    "game_id": "INTEGER NOT NULL",
+    "sportsbook_name": "TEXT NOT NULL",
+    "snapshot_time": "TEXT NOT NULL",
+    "home_moneyline": "INTEGER",
+    "away_moneyline": "INTEGER",
+    "total_line": "REAL",
+    "over_price": "INTEGER",
+    "under_price": "INTEGER",
+}
+
+TRACKED_BETS_COLUMNS = {
+    "tracking_key": "TEXT",
+    "grading_key": "TEXT",
+    "game_id": "INTEGER",
+    "game_match_method": "TEXT",
+    "snapshot_timestamp": "TEXT",
+    "snapshot_date": "TEXT",
+    "snapshot_type": "TEXT",
+    "data_mode": "TEXT",
+    "run_dispersion": "REAL",
+    "away_team": "TEXT",
+    "home_team": "TEXT",
+    "sportsbook": "TEXT",
+    "best_bet": "TEXT",
+    "bet_flag": "TEXT",
+    "best_total_bet": "TEXT",
+    "total_bet_flag": "TEXT",
+    "away_moneyline": "INTEGER",
+    "home_moneyline": "INTEGER",
+    "total_line": "REAL",
+    "over_price": "INTEGER",
+    "under_price": "INTEGER",
+    "open_home_ml": "INTEGER",
+    "open_away_ml": "INTEGER",
+    "open_total": "REAL",
+    "open_over_price": "INTEGER",
+    "open_under_price": "INTEGER",
+    "close_home_ml": "INTEGER",
+    "close_away_ml": "INTEGER",
+    "close_total": "REAL",
+    "close_over_price": "INTEGER",
+    "close_under_price": "INTEGER",
+    "clv_side": "REAL",
+    "clv_total": "REAL",
+    "clv_side_line_diff": "REAL",
+    "clv_total_line_diff": "REAL",
+    "market_timestamp_open": "TEXT",
+    "market_timestamp_close": "TEXT",
+    "final_away_runs": "REAL",
+    "final_home_runs": "REAL",
+    "side_pick_outcome": "TEXT",
+    "total_pick_outcome": "TEXT",
+    "side_units": "REAL",
+    "total_units": "REAL",
+    "grading_status": "TEXT DEFAULT 'ungraded'",
+    "grading_source": "TEXT",
+    "graded_timestamp": "TEXT",
+    "grading_note": "TEXT",
+    "created_at": "TEXT DEFAULT CURRENT_TIMESTAMP",
+    "updated_at": "TEXT DEFAULT CURRENT_TIMESTAMP",
+}
+
 
 def get_db_path() -> Path:
     """Return the database path used by the project."""
@@ -163,6 +289,56 @@ def ensure_model_features_columns(connection: sqlite3.Connection) -> None:
         )
 
 
+def ensure_odds_snapshots_columns(connection: sqlite3.Connection) -> None:
+    """Add any newer odds snapshot columns that are missing from an existing table."""
+    existing_columns = {
+        row[1] for row in connection.execute("PRAGMA table_info(odds_snapshots)").fetchall()
+    }
+
+    for column_name, column_type in ODDS_SNAPSHOTS_COLUMNS.items():
+        if column_name in existing_columns:
+            continue
+        connection.execute(
+            f"ALTER TABLE odds_snapshots ADD COLUMN {column_name} {column_type}"
+        )
+
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_odds_snapshots_game_time ON odds_snapshots (game_id, snapshot_time)"
+    )
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_odds_snapshots_game_book_time ON odds_snapshots (game_id, sportsbook_name, snapshot_time)"
+    )
+
+
+def ensure_tracked_bets_columns(connection: sqlite3.Connection) -> None:
+    """Add any newer tracked-bet columns that are missing from an existing table."""
+    existing_tables = {
+        row[0]
+        for row in connection.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table'"
+        ).fetchall()
+    }
+    if "tracked_bets" not in existing_tables:
+        return
+
+    existing_columns = {
+        row[1] for row in connection.execute("PRAGMA table_info(tracked_bets)").fetchall()
+    }
+    for column_name, column_type in TRACKED_BETS_COLUMNS.items():
+        if column_name in existing_columns:
+            continue
+        connection.execute(
+            f"ALTER TABLE tracked_bets ADD COLUMN {column_name} {column_type}"
+        )
+
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_tracked_bets_game_id ON tracked_bets (game_id)"
+    )
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_tracked_bets_match_method ON tracked_bets (game_match_method)"
+    )
+
+
 def initialize_database(db_path: Path | None = None) -> Path:
     """Create the SQLite database and all project tables."""
     target_path = db_path or get_db_path()
@@ -172,6 +348,8 @@ def initialize_database(db_path: Path | None = None) -> Path:
         connection.execute("PRAGMA foreign_keys = ON;")
         connection.executescript(SCHEMA_SQL)
         ensure_model_features_columns(connection)
+        ensure_odds_snapshots_columns(connection)
+        ensure_tracked_bets_columns(connection)
         connection.commit()
 
     return target_path
