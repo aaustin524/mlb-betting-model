@@ -484,6 +484,15 @@ def inject_app_styles():
             gap: 0.5rem;
             margin-bottom: 0.2rem;
         }
+        .board-status-meta {
+            display: inline-flex;
+            align-items: center;
+            color: var(--text-muted);
+            font-size: 0.78rem;
+            line-height: 1.2;
+            padding: 0.18rem 0;
+            white-space: nowrap;
+        }
         .board-card.favorite-card {
             border-color: rgba(243, 156, 18, 0.50);
         }
@@ -1349,6 +1358,9 @@ def inject_app_styles():
             .card-pill-row,
             .freshness-pills {
                 gap: 0.35rem;
+            }
+            .board-status-meta {
+                font-size: 0.69rem;
             }
             .signal-badge,
             .favorite-badge,
@@ -3588,7 +3600,7 @@ def render_matchup_cards(display_df):
                                     <div class="board-status-badge {card_signal['badge_class']}">{card_signal['badge_text']}</div>
                                 </div>
                                 <div class="board-status-row">
-                                    <div class="board-subtle">{sportsbook_name}</div>
+                                    <span class="board-status-meta">{sportsbook_name}</span>
                                     {side_angle_badge}
                                     {total_angle_badge}
                                 </div>
