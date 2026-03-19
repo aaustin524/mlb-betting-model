@@ -1699,6 +1699,137 @@ def inject_app_styles():
         .team-row-brand .team-logo-name {
             font-size: 0.94rem;
         }
+        .betting-tile-shell {
+            background: linear-gradient(180deg, #1E293B 0%, #182436 100%);
+            border: 1px solid #334155;
+            border-radius: 16px;
+            padding: 1rem 1.05rem;
+            margin-bottom: 0.85rem;
+            box-shadow: 0 14px 30px rgba(0, 0, 0, 0.22);
+        }
+        .betting-tile-shell.positive {
+            border-color: rgba(34, 197, 94, 0.34);
+        }
+        .betting-tile-shell.negative {
+            border-color: rgba(239, 68, 68, 0.30);
+        }
+        .betting-tile-shell.neutral {
+            border-color: rgba(100, 116, 139, 0.40);
+        }
+        .betting-team-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 0.72rem;
+        }
+        .betting-team-line {
+            display: flex;
+            align-items: center;
+            gap: 0.72rem;
+        }
+        .betting-logo {
+            width: 42px;
+            height: 42px;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.08);
+            background: rgba(255,255,255,0.03);
+            flex-shrink: 0;
+        }
+        .betting-logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            display: block;
+        }
+        .betting-team-name {
+            color: var(--text);
+            font-family: "Space Grotesk", "Barlow", sans-serif;
+            font-size: 1.02rem;
+            font-weight: 700;
+            line-height: 1.1;
+        }
+        .betting-team-name.favorite {
+            color: var(--positive);
+        }
+        .betting-subcopy {
+            color: var(--text-muted);
+            font-size: 0.76rem;
+            margin-top: 0.12rem;
+        }
+        .betting-section-label {
+            color: var(--text-muted);
+            font-size: 0.68rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            font-weight: 700;
+            margin-bottom: 0.35rem;
+        }
+        .betting-prob-row {
+            margin-bottom: 0.65rem;
+        }
+        .betting-prob-topline {
+            display: flex;
+            justify-content: space-between;
+            gap: 0.5rem;
+            font-size: 0.88rem;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 0.26rem;
+        }
+        .betting-prob-topline.favorite {
+            color: var(--positive);
+        }
+        .betting-prob-track {
+            width: 100%;
+            height: 10px;
+            border-radius: 999px;
+            overflow: hidden;
+            background: #334155;
+        }
+        .betting-prob-fill {
+            height: 100%;
+            border-radius: 999px;
+            background: #64748B;
+        }
+        .betting-prob-fill.favorite {
+            background: #22C55E;
+        }
+        .betting-score-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text);
+            margin-bottom: 0.44rem;
+        }
+        .betting-edge-box {
+            border-radius: 14px;
+            padding: 0.78rem 0.82rem;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid #334155;
+        }
+        .betting-edge-pick {
+            color: var(--text);
+            font-family: "Space Grotesk", "Barlow", sans-serif;
+            font-size: 0.96rem;
+            font-weight: 700;
+            margin-top: 0.2rem;
+        }
+        .betting-edge-value {
+            font-size: 1rem;
+            font-weight: 800;
+            margin-top: 0.52rem;
+        }
+        .betting-edge-value.positive {
+            color: var(--positive);
+        }
+        .betting-edge-value.negative {
+            color: var(--negative);
+        }
+        .betting-edge-value.neutral {
+            color: var(--neutral);
+        }
         .team-card.favorite {
             border-color: rgba(54, 212, 140, 0.32);
             box-shadow: inset 0 0 0 1px rgba(54, 212, 140, 0.05);
@@ -4352,22 +4483,143 @@ def build_full_matchup_card_html(row):
     ).strip()
 
 
+def get_tile_side_edge(row):
+    best_bet = row.get("Best Bet")
+    if best_bet == row.get("Away"):
+        return row.get("Away Edge %")
+    if best_bet == row.get("Home"):
+        return row.get("Home Edge %")
+    return None
+
+
+def render_betting_tile(row):
+    away_team = format_display_text(row.get("Away"))
+    home_team = format_display_text(row.get("Home"))
+    away_pitcher = format_display_text(row.get("Away Pitcher"))
+    home_pitcher = format_display_text(row.get("Home Pitcher"))
+    away_logo = get_team_logo_src(row.get("Away"))
+    home_logo = get_team_logo_src(row.get("Home"))
+
+    away_win = float(row.get("Away Win", 0.0))
+    home_win = float(row.get("Home Win", 0.0))
+    away_runs = float(row.get("Away Runs", 0.0))
+    home_runs = float(row.get("Home Runs", 0.0))
+    favorite_team = row.get("Favorite")
+    best_bet = format_display_text(row.get("Best Bet"), "Pass")
+    best_edge = get_tile_side_edge(row)
+    signal_tone = get_edge_tone(best_edge)
+
+    away_favorite = str(favorite_team) == str(row.get("Away"))
+    home_favorite = str(favorite_team) == str(row.get("Home"))
+
+    with st.container():
+        st.markdown(f'<div class="betting-tile-shell {signal_tone}">', unsafe_allow_html=True)
+        team_col, prob_col, score_col, edge_col = st.columns([3, 2, 2, 2])
+
+        with team_col:
+            st.markdown(
+                dedent(
+                    f"""
+                    <div class="betting-team-stack">
+                        <div class="betting-team-line">
+                            <div class="betting-logo"><img src="{away_logo}" alt="{away_team}" /></div>
+                            <div>
+                                <div class="betting-team-name {'favorite' if away_favorite else ''}">{away_team}</div>
+                                <div class="betting-subcopy">{away_pitcher}</div>
+                            </div>
+                        </div>
+                        <div class="betting-team-line">
+                            <div class="betting-logo"><img src="{home_logo}" alt="{home_team}" /></div>
+                            <div>
+                                <div class="betting-team-name {'favorite' if home_favorite else ''}">{home_team}</div>
+                                <div class="betting-subcopy">{home_pitcher}</div>
+                            </div>
+                        </div>
+                    </div>
+                    """
+                ).strip(),
+                unsafe_allow_html=True,
+            )
+
+        with prob_col:
+            st.markdown('<div class="betting-section-label">Win %</div>', unsafe_allow_html=True)
+            st.markdown(
+                dedent(
+                    f"""
+                    <div class="betting-prob-row">
+                        <div class="betting-prob-topline {'favorite' if away_favorite else ''}">
+                            <span>{away_team}</span>
+                            <span>{away_win:.1f}%</span>
+                        </div>
+                        <div class="betting-prob-track">
+                            <div class="betting-prob-fill {'favorite' if away_favorite else ''}" style="width:{away_win}%;"></div>
+                        </div>
+                    </div>
+                    <div class="betting-prob-row" style="margin-bottom:0;">
+                        <div class="betting-prob-topline {'favorite' if home_favorite else ''}">
+                            <span>{home_team}</span>
+                            <span>{home_win:.1f}%</span>
+                        </div>
+                        <div class="betting-prob-track">
+                            <div class="betting-prob-fill {'favorite' if home_favorite else ''}" style="width:{home_win}%;"></div>
+                        </div>
+                    </div>
+                    """
+                ).strip(),
+                unsafe_allow_html=True,
+            )
+
+        with score_col:
+            st.markdown('<div class="betting-section-label">Projected Score</div>', unsafe_allow_html=True)
+            st.markdown(
+                dedent(
+                    f"""
+                    <div class="betting-score-row">
+                        <span>{away_team}</span>
+                        <span>{away_runs:.2f}</span>
+                    </div>
+                    <div class="betting-score-row" style="margin-bottom:0;">
+                        <span>{home_team}</span>
+                        <span>{home_runs:.2f}</span>
+                    </div>
+                    """
+                ).strip(),
+                unsafe_allow_html=True,
+            )
+
+        with edge_col:
+            st.markdown('<div class="betting-section-label">Edge / Best Bet</div>', unsafe_allow_html=True)
+            edge_text = "N/A" if best_edge is None or pd.isna(best_edge) else f"{float(best_edge):+.1f}%"
+            st.markdown(
+                dedent(
+                    f"""
+                    <div class="betting-edge-box">
+                        <div class="betting-subcopy" style="margin-top:0;">Best Bet</div>
+                        <div class="betting-edge-pick">{best_bet}</div>
+                        <div class="betting-subcopy">Edge</div>
+                        <div class="betting-edge-value {signal_tone}">{edge_text}</div>
+                    </div>
+                    """
+                ).strip(),
+                unsafe_allow_html=True,
+            )
+
+        st.markdown("</div>", unsafe_allow_html=True)
+
+
 def render_matchup_table(display_df):
     st.markdown('<div class="section-panel">', unsafe_allow_html=True)
-    st.markdown('<div class="section-label">Board Rows</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-label">Betting Tiles</div>', unsafe_allow_html=True)
     st.markdown(
-        '<div class="section-subtitle">Compact sportsbook tape built from custom row cards, not a default table.</div>',
+        '<div class="section-subtitle">Card-based MLB betting tiles built from your live board data.</div>',
         unsafe_allow_html=True,
     )
     if display_df.empty:
         st.info("No games loaded for the current board.")
         st.markdown('</div>', unsafe_allow_html=True)
         return
-    rows_html = ['<div class="board-rows">']
     for _, row in display_df.iterrows():
-        rows_html.append(build_compact_matchup_row_html(row))
-    rows_html.append("</div>")
-    st.html("".join(rows_html))
+        render_betting_tile(row)
     st.markdown('</div>', unsafe_allow_html=True)
 
 
@@ -4692,7 +4944,7 @@ def render_matchup_cards(display_df):
     st.markdown('<div class="section-panel">', unsafe_allow_html=True)
     st.markdown('<div class="section-label">Matchup Board</div>', unsafe_allow_html=True)
     st.markdown(
-        '<div class="section-subtitle">Quick-scan cards with the best side and total angles up front, plus deeper market context on demand.</div>',
+        '<div class="section-subtitle">DraftKings-style betting tiles with team logos, win bars, projected score, and edge signals.</div>',
         unsafe_allow_html=True,
     )
 
@@ -4700,11 +4952,8 @@ def render_matchup_cards(display_df):
         st.info("No games loaded for the current board.")
         st.markdown('</div>', unsafe_allow_html=True)
         return
-    cards_html = ['<div class="matchup-board-grid">']
     for _, row in display_df.iterrows():
-        cards_html.append(build_full_matchup_card_html(row))
-    cards_html.append("</div>")
-    st.html("".join(cards_html))
+        render_betting_tile(row)
 
     st.markdown('</div>', unsafe_allow_html=True)
 
