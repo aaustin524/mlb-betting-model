@@ -506,14 +506,14 @@ def inject_app_styles():
             color: var(--text);
             font-size: 1.05rem;
             font-weight: 700;
-            margin-top: 1rem;
-            margin-bottom: 0.5rem;
+            margin-top: 0.85rem;
+            margin-bottom: 0.3rem;
         }
         .section-subtitle {
             color: var(--text-muted);
-            font-size: 0.9rem;
+            font-size: 0.82rem;
             margin-top: -0.1rem;
-            margin-bottom: 0.8rem;
+            margin-bottom: 0.45rem;
         }
         .section-panel {
             margin: 0.85rem 0 1rem;
@@ -1344,15 +1344,15 @@ def inject_app_styles():
         }
         .monitor-panel-copy {
             color: var(--text-muted);
-            font-size: 0.84rem;
-            line-height: 1.45;
-            margin-bottom: 0.7rem;
+            font-size: 0.78rem;
+            line-height: 1.3;
+            margin-bottom: 0.45rem;
         }
         .monitor-notes {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
             gap: 0.7rem;
-            margin: 0.35rem 0 1rem;
+            margin: 0.2rem 0 0.8rem;
         }
         .monitor-note-card {
             border-radius: 14px;
@@ -1371,13 +1371,13 @@ def inject_app_styles():
             font-size: 0.94rem;
             font-weight: 720;
             margin-top: 0.24rem;
-            line-height: 1.4;
+            line-height: 1.25;
         }
         .monitor-expander-copy {
             color: var(--text-muted);
-            font-size: 0.84rem;
-            margin-bottom: 0.65rem;
-            line-height: 1.45;
+            font-size: 0.78rem;
+            margin-bottom: 0.4rem;
+            line-height: 1.25;
         }
         .team-profile-card {
             border-radius: 18px;

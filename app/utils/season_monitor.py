@@ -576,9 +576,10 @@ def _add_rank_column(dataframe):
     return ranked_df.reset_index().rename(columns={"index": "Rank"})
 
 
-def _render_monitor_section_header(title, subtitle):
+def _render_monitor_section_header(title, subtitle=None):
     st.markdown(f'<div class="section-label">{title}</div>', unsafe_allow_html=True)
-    st.markdown(f'<div class="section-subtitle">{subtitle}</div>', unsafe_allow_html=True)
+    if subtitle:
+        st.markdown(f'<div class="section-subtitle">{subtitle}</div>', unsafe_allow_html=True)
 
 
 def _render_top_leader_cards(dataframe, value_column, subtitle_builder, value_format, max_cards=5):
@@ -1392,7 +1393,7 @@ def render_season_monitor(
     st.markdown('<div class="section-panel">', unsafe_allow_html=True)
     st.markdown('<div class="section-label">Season Monitor</div>', unsafe_allow_html=True)
     st.markdown(
-        '<div class="section-subtitle">Player and unit intelligence board for pitchers, projected lineups, bullpen stress, and team-level model drivers.</div>',
+        '<div class="section-subtitle">Pitchers, lineups, bullpens, drivers.</div>',
         unsafe_allow_html=True,
     )
 
@@ -1582,7 +1583,7 @@ def render_season_monitor(
 
     _render_monitor_section_header(
         "Model Drivers",
-        "Fast-read leaders that explain what is pushing the model right now.",
+        "Fast-read leaders",
     )
     _render_monitor_summary_cards(
         [
@@ -1621,15 +1622,15 @@ def render_season_monitor(
         [
             {
                 "label": "Pitchers",
-                "value": "Pitcher Watch surfaces the highest-quality arms in the ratings file and highlights likely impact starters from the active daily board.",
+                "value": "Today | starter board",
             },
             {
                 "label": "Lineups",
-                "value": "Lineup Strength blends projected hitter groups with the team offense baseline, so you can see who is getting a meaningful boost from the current projected lineup.",
+                "value": "Score | adjustment",
             },
             {
                 "label": "Bullpens",
-                "value": "Bullpen Monitor combines underlying bullpen quality with recent usage-based fatigue to flag both elite and stressed relief groups.",
+                "value": "Quality | fatigue",
             },
         ]
     )
@@ -1637,7 +1638,7 @@ def render_season_monitor(
     if today_impact_cards:
         _render_monitor_section_header(
             "Today Impact",
-            "Quick bridge from the season model to the active slate so the biggest starter, lineup, and bullpen effects stand out immediately.",
+            "Slate snapshot",
         )
         _render_monitor_summary_cards(today_impact_cards)
 
@@ -1645,7 +1646,7 @@ def render_season_monitor(
     with st.container():
         with st.expander("Pitcher Watch", expanded=True):
             st.markdown(
-                '<div class="monitor-expander-copy">High-impact arms from the ratings file plus likely impact starters from the current board.</div>',
+                '<div class="monitor-expander-copy">Today + season view.</div>',
                 unsafe_allow_html=True,
             )
             if not today_pitchers_view.empty:
@@ -1665,7 +1666,7 @@ def render_season_monitor(
                         "FIP": lambda value: f"{float(value):.2f}",
                     },
                 )
-            st.markdown('<div class="monitor-expander-copy">League-wide starter quality reference.</div>', unsafe_allow_html=True)
+            st.markdown('<div class="monitor-expander-copy">League reference.</div>', unsafe_allow_html=True)
             _render_monitor_leaderboard_table(
                 pitcher_watch_view,
                 ["Rank", "Pitcher", "Team", "Throws", "Pitcher Score", "Pitcher Rating", "FIP"],
@@ -1679,7 +1680,7 @@ def render_season_monitor(
     with st.container():
         with st.expander("Lineup Strength", expanded=(team_filter != "All Teams")):
             st.markdown(
-                '<div class="monitor-expander-copy">Projected lineup quality blended with each team offense baseline to show who is getting a boost from the current hitter group.</div>',
+                '<div class="monitor-expander-copy">Lineup score | confidence.</div>',
                 unsafe_allow_html=True,
             )
             _render_top_leader_cards(
@@ -1703,7 +1704,7 @@ def render_season_monitor(
 
     with st.expander("Bullpen Monitor", expanded=(team_filter != "All Teams")):
         st.markdown(
-            '<div class="monitor-expander-copy">Bullpen quality and usage stress are separated here so you can see which teams are still elite and which relief groups may be stretched.</div>',
+            '<div class="monitor-expander-copy">Quality | stress.</div>',
             unsafe_allow_html=True,
         )
         left_col, right_col = st.columns(2)
@@ -1740,7 +1741,7 @@ def render_season_monitor(
 
     with st.expander("Model Movers", expanded=(team_filter != "All Teams")):
         st.markdown(
-            '<div class="monitor-expander-copy">This board keeps one team-level reference, but frames it around what is actually driving the model rather than around standings or race position.</div>',
+            '<div class="monitor-expander-copy">Driver mix.</div>',
             unsafe_allow_html=True,
         )
         st.markdown('<div class="monitor-layout-grid">', unsafe_allow_html=True)
@@ -1750,7 +1751,7 @@ def render_season_monitor(
                     """
                     <div class="monitor-panel">
                         <div class="monitor-panel-title">Model Driver Board</div>
-                        <div class="monitor-panel-copy">Which teams are offense-driven, run-prevention driven, or balanced.</div>
+                        <div class="monitor-panel-copy">Offense | pitching | bullpen.</div>
                     """
                 ).strip(),
                 unsafe_allow_html=True,
@@ -1774,7 +1775,7 @@ def render_season_monitor(
                     """
                     <div class="monitor-panel">
                         <div class="monitor-panel-title">Team Power Reference</div>
-                        <div class="monitor-panel-copy">Compact team context kept as a reference instead of the focus of the tab.</div>
+                        <div class="monitor-panel-copy">Quick team context.</div>
                     """
                 ).strip(),
                 unsafe_allow_html=True,
