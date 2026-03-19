@@ -1135,14 +1135,14 @@ def inject_app_styles():
         }
         .monitor-hero {
             margin: 0.25rem 0 1rem;
-            padding: 1rem 1.05rem;
-            border-radius: 18px;
+            padding: 1.05rem 1.1rem;
+            border-radius: 20px;
             background:
-                radial-gradient(circle at top left, rgba(243, 156, 18, 0.08), transparent 24%),
-                radial-gradient(circle at bottom right, rgba(46, 204, 113, 0.06), transparent 24%),
-                linear-gradient(180deg, #171B22 0%, #141821 100%);
-            border: 1px solid var(--border);
-            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
+                radial-gradient(circle at top left, rgba(249, 115, 22, 0.12), transparent 26%),
+                radial-gradient(circle at bottom right, rgba(34, 197, 94, 0.05), transparent 24%),
+                linear-gradient(180deg, rgba(28, 34, 45, 0.98) 0%, rgba(16, 23, 36, 0.98) 100%);
+            border: 1px solid rgba(100, 116, 139, 0.24);
+            box-shadow: 0 18px 42px rgba(0, 0, 0, 0.24);
         }
         .monitor-kicker {
             color: var(--totals);
@@ -1160,9 +1160,88 @@ def inject_app_styles():
         }
         .monitor-copy {
             color: var(--text-muted);
-            font-size: 0.9rem;
+            font-size: 0.86rem;
             margin-top: 0.35rem;
-            line-height: 1.45;
+            line-height: 1.35;
+            max-width: 760px;
+        }
+        .monitor-toolbar-shell {
+            margin: 0.5rem 0 1rem;
+            padding: 0.95rem 1rem 0.85rem;
+            border-radius: 20px;
+            background:
+                radial-gradient(circle at top left, rgba(249, 115, 22, 0.10), transparent 20%),
+                linear-gradient(180deg, rgba(25, 33, 46, 0.98) 0%, rgba(15, 23, 35, 0.98) 100%);
+            border: 1px solid rgba(100, 116, 139, 0.24);
+            box-shadow: 0 18px 38px rgba(0, 0, 0, 0.22);
+        }
+        .monitor-toolbar-topline {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 0.8rem;
+            margin-bottom: 0.7rem;
+        }
+        .monitor-toolbar-kicker {
+            color: var(--totals);
+            font-size: 0.69rem;
+            font-weight: 800;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+        }
+        .monitor-toolbar-title {
+            color: var(--text);
+            font-size: 1.02rem;
+            font-weight: 780;
+            margin-top: 0.26rem;
+        }
+        .monitor-toolbar-note {
+            color: var(--text-muted);
+            font-size: 0.78rem;
+            font-weight: 600;
+            white-space: nowrap;
+            padding-top: 0.18rem;
+        }
+        .monitor-toolbar-slot {
+            min-height: 100%;
+            padding: 0.68rem 0.72rem 0.56rem;
+            border-radius: 16px;
+            background: linear-gradient(180deg, rgba(30, 41, 59, 0.80) 0%, rgba(15, 23, 42, 0.92) 100%);
+            border: 1px solid rgba(100, 116, 139, 0.18);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+        }
+        .monitor-toolbar-label {
+            color: var(--text-muted);
+            font-size: 0.68rem;
+            font-weight: 800;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            margin-bottom: 0.45rem;
+        }
+        .monitor-filter-pill-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 0.75rem;
+        }
+        .monitor-filter-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.42rem;
+            padding: 0.36rem 0.68rem;
+            border-radius: 999px;
+            background: rgba(15, 23, 42, 0.76);
+            border: 1px solid rgba(100, 116, 139, 0.18);
+            color: var(--text);
+            font-size: 0.78rem;
+            font-weight: 700;
+        }
+        .monitor-filter-pill-label {
+            color: var(--text-muted);
+            font-size: 0.66rem;
+            font-weight: 800;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
         }
         .leader-row {
             display: grid;
@@ -1297,11 +1376,13 @@ def inject_app_styles():
             margin: 0.3rem 0 1rem;
         }
         .monitor-summary-card {
-            border-radius: 16px;
-            padding: 0.95rem 1rem;
-            background: linear-gradient(180deg, #1C1F26 0%, #181B22 100%);
-            border: 1px solid var(--border);
-            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+            border-radius: 18px;
+            padding: 1rem 1.02rem;
+            background:
+                radial-gradient(circle at top right, rgba(249, 115, 22, 0.08), transparent 24%),
+                linear-gradient(180deg, rgba(30, 41, 59, 0.84) 0%, rgba(15, 23, 42, 0.96) 100%);
+            border: 1px solid rgba(100, 116, 139, 0.22);
+            box-shadow: 0 14px 28px rgba(0, 0, 0, 0.18);
         }
         .monitor-summary-label {
             color: var(--text-muted);
@@ -1312,15 +1393,15 @@ def inject_app_styles():
         }
         .monitor-summary-team {
             color: var(--text);
-            font-size: 1rem;
-            font-weight: 780;
-            margin-top: 0.35rem;
+            font-size: 1.06rem;
+            font-weight: 800;
+            margin-top: 0.38rem;
         }
         .monitor-summary-value {
             color: var(--totals);
-            font-size: 0.88rem;
-            font-weight: 720;
-            margin-top: 0.22rem;
+            font-size: 0.82rem;
+            font-weight: 760;
+            margin-top: 0.28rem;
         }
         .monitor-layout-grid {
             display: grid;
@@ -1330,11 +1411,13 @@ def inject_app_styles():
             margin: 0.35rem 0 1rem;
         }
         .monitor-panel {
-            border-radius: 18px;
+            border-radius: 20px;
             padding: 0.95rem 1rem;
-            background: linear-gradient(180deg, #1C1F26 0%, #181B22 100%);
-            border: 1px solid var(--border);
-            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+            background:
+                radial-gradient(circle at top left, rgba(249, 115, 22, 0.04), transparent 22%),
+                linear-gradient(180deg, rgba(28, 31, 38, 0.96) 0%, rgba(18, 24, 33, 0.98) 100%);
+            border: 1px solid rgba(100, 116, 139, 0.18);
+            box-shadow: 0 14px 30px rgba(0, 0, 0, 0.2);
         }
         .monitor-panel-title {
             color: var(--text);
@@ -1355,10 +1438,10 @@ def inject_app_styles():
             margin: 0.2rem 0 0.8rem;
         }
         .monitor-note-card {
-            border-radius: 14px;
-            padding: 0.85rem 0.9rem;
-            background: linear-gradient(180deg, #20242D 0%, #1A1E26 100%);
-            border: 1px solid #2A303A;
+            border-radius: 16px;
+            padding: 0.78rem 0.88rem;
+            background: linear-gradient(180deg, rgba(32, 36, 45, 0.94) 0%, rgba(20, 25, 33, 0.96) 100%);
+            border: 1px solid rgba(100, 116, 139, 0.16);
         }
         .monitor-note-label {
             color: var(--text-muted);
@@ -1380,15 +1463,55 @@ def inject_app_styles():
             line-height: 1.25;
         }
         .team-profile-card {
-            border-radius: 18px;
+            border-radius: 20px;
             padding: 1rem 1.05rem;
             background:
-                radial-gradient(circle at top left, rgba(46, 204, 113, 0.07), transparent 26%),
-                radial-gradient(circle at bottom right, rgba(243, 156, 18, 0.07), transparent 24%),
-                linear-gradient(180deg, #1C1F26 0%, #181B22 100%);
-            border: 1px solid var(--border);
-            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+                radial-gradient(circle at top left, rgba(34, 197, 94, 0.06), transparent 26%),
+                radial-gradient(circle at bottom right, rgba(249, 115, 22, 0.08), transparent 24%),
+                linear-gradient(180deg, rgba(28, 31, 38, 0.96) 0%, rgba(18, 24, 33, 0.98) 100%);
+            border: 1px solid rgba(100, 116, 139, 0.2);
+            box-shadow: 0 14px 30px rgba(0, 0, 0, 0.2);
             margin: 0.3rem 0 1rem;
+        }
+        .monitor-table-shell {
+            overflow-x: auto;
+            margin-top: 0.5rem;
+            border-radius: 18px;
+            border: 1px solid rgba(100, 116, 139, 0.18);
+            background: linear-gradient(180deg, rgba(15, 23, 42, 0.96) 0%, rgba(12, 19, 32, 0.98) 100%);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02), 0 14px 28px rgba(0, 0, 0, 0.18);
+        }
+        .monitor-table {
+            min-width: 100%;
+            width: max-content;
+            border-collapse: separate;
+            border-spacing: 0;
+            table-layout: auto;
+        }
+        .monitor-table-head {
+            padding: 0.82rem 0.9rem;
+            color: rgba(248, 250, 252, 0.62);
+            font-size: 0.7rem;
+            font-weight: 800;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            white-space: nowrap;
+            text-align: left;
+            border-bottom: 1px solid rgba(100, 116, 139, 0.18);
+            background: linear-gradient(180deg, rgba(30, 41, 59, 0.98) 0%, rgba(18, 29, 45, 0.98) 100%);
+        }
+        .monitor-table-row {
+            background: linear-gradient(180deg, rgba(27, 31, 39, 0.96) 0%, rgba(20, 25, 34, 0.98) 100%);
+        }
+        .monitor-table-row:hover {
+            background: linear-gradient(180deg, rgba(34, 42, 56, 0.98) 0%, rgba(22, 30, 42, 0.98) 100%);
+        }
+        .monitor-table-cell {
+            padding: 0.82rem 0.9rem;
+            color: rgba(248, 250, 252, 0.90);
+            font-size: 0.86rem;
+            white-space: nowrap;
+            border-bottom: 1px solid rgba(100, 116, 139, 0.10);
         }
         .team-profile-kicker {
             color: var(--totals);
@@ -2081,35 +2204,73 @@ def inject_app_styles():
         div[data-baseweb="input"] > div,
         div[data-baseweb="select"] > div,
         div[data-baseweb="base-input"] > div {
-            background-color: rgba(18, 29, 45, 0.92) !important;
-            border-color: rgba(126, 155, 194, 0.20) !important;
+            background:
+                linear-gradient(180deg, rgba(28, 38, 55, 0.96) 0%, rgba(15, 23, 35, 0.98) 100%) !important;
+            border-color: rgba(100, 116, 139, 0.22) !important;
             border-radius: 14px !important;
+            box-shadow: none !important;
+            min-height: 2.8rem;
         }
         div[data-baseweb="input"] input,
         div[data-baseweb="select"] input,
         div[data-baseweb="base-input"] input {
             color: var(--text) !important;
         }
-        div[role="listbox"] {
-            background: #122033 !important;
-            border: 1px solid rgba(126, 155, 194, 0.20) !important;
+        div[data-baseweb="select"] > div:hover,
+        div[data-baseweb="input"] > div:hover,
+        div[data-baseweb="base-input"] > div:hover {
+            border-color: rgba(249, 115, 22, 0.26) !important;
         }
-        div[role="listbox"] * {
+        div[data-baseweb="select"]:focus-within > div,
+        div[data-baseweb="input"]:focus-within > div,
+        div[data-baseweb="base-input"]:focus-within > div {
+            border-color: rgba(249, 115, 22, 0.34) !important;
+            box-shadow: 0 0 0 1px rgba(249, 115, 22, 0.12) !important;
+        }
+        div[role="listbox"],
+        div[data-baseweb="menu"],
+        div[data-baseweb="popover"] {
+            background: linear-gradient(180deg, rgba(18, 29, 45, 0.99) 0%, rgba(11, 18, 30, 0.99) 100%) !important;
+            border: 1px solid rgba(100, 116, 139, 0.22) !important;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.34) !important;
+        }
+        div[role="listbox"] *,
+        div[data-baseweb="menu"] *,
+        div[data-baseweb="popover"] * {
             color: var(--text) !important;
+        }
+        div[role="option"],
+        li[role="option"],
+        ul[role="listbox"] li {
+            background: transparent !important;
+        }
+        div[role="option"]:hover,
+        li[role="option"]:hover,
+        ul[role="listbox"] li:hover {
+            background: rgba(249, 115, 22, 0.12) !important;
+        }
+        div[aria-selected="true"][role="option"],
+        li[aria-selected="true"][role="option"],
+        ul[role="listbox"] li[aria-selected="true"] {
+            background: rgba(249, 115, 22, 0.16) !important;
+        }
+        [data-testid="stSelectbox"] svg,
+        [data-testid="stMultiSelect"] svg {
+            fill: var(--text-muted) !important;
         }
         [data-testid="stRadio"] [role="radiogroup"] {
             gap: 0.45rem;
-            background: rgba(9, 18, 30, 0.65);
-            padding: 0.34rem;
-            border-radius: 16px;
-            border: 1px solid rgba(126, 155, 194, 0.16);
+            background: rgba(9, 18, 30, 0.72);
+            padding: 0.28rem;
+            border-radius: 14px;
+            border: 1px solid rgba(100, 116, 139, 0.14);
         }
         [data-testid="stRadio"] [role="radiogroup"] label {
-            min-height: 2.55rem;
+            min-height: 2.4rem;
             border-radius: 12px !important;
             background: transparent !important;
             border: 1px solid transparent !important;
-            padding: 0.42rem 0.8rem !important;
+            padding: 0.34rem 0.7rem !important;
             transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
         }
         [data-testid="stRadio"] [role="radiogroup"] label:hover {
@@ -2162,10 +2323,11 @@ def inject_app_styles():
             box-shadow: inset 0 0 0 1px rgba(249, 115, 22, 0.06);
         }
         [data-testid="stExpander"] details {
-            border-radius: 18px;
-            border: 1px solid rgba(126, 155, 194, 0.14);
-            background: linear-gradient(180deg, rgba(18, 29, 45, 0.94) 0%, rgba(10, 20, 34, 0.96) 100%);
+            border-radius: 20px;
+            border: 1px solid rgba(100, 116, 139, 0.16);
+            background: linear-gradient(180deg, rgba(18, 29, 45, 0.96) 0%, rgba(10, 20, 34, 0.98) 100%);
             overflow: hidden;
+            box-shadow: 0 14px 30px rgba(0, 0, 0, 0.18);
         }
         [data-testid="stExpander"] summary {
             padding: 0.95rem 1rem !important;

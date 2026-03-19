@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 import sqlite3
+from html import escape
 from textwrap import dedent
 
 import numpy as np
@@ -662,18 +663,7 @@ def _render_monitor_leaderboard_table(dataframe, columns, formatters=None):
     header_html = "".join(
         dedent(
             f"""
-            <th style="
-                padding: 0.72rem 0.82rem;
-                color: rgba(255,255,255,0.62);
-                font-size: 0.72rem;
-                font-weight: 700;
-                letter-spacing: 0.08em;
-                text-transform: uppercase;
-                white-space: nowrap;
-                text-align: left;
-                border-bottom: 1px solid rgba(255,255,255,0.08);
-                background: linear-gradient(180deg, #20242D 0%, #1A1E26 100%);
-            ">{column_name}</th>
+            <th class="monitor-table-head">{column_name}</th>
             """
         ).strip()
         for column_name in table_df.columns
@@ -684,13 +674,7 @@ def _render_monitor_leaderboard_table(dataframe, columns, formatters=None):
         cell_html = "".join(
             dedent(
                 f"""
-                <td style="
-                    padding: 0.78rem 0.82rem;
-                    color: rgba(255,255,255,0.88);
-                    font-size: 0.88rem;
-                    white-space: nowrap;
-                    border-bottom: 1px solid rgba(255,255,255,0.05);
-                ">{_render_monitor_table_cell(column_name, row[column_name], formatters=formatters)}</td>
+                <td class="monitor-table-cell">{_render_monitor_table_cell(column_name, row[column_name], formatters=formatters)}</td>
                 """
             ).strip()
             for column_name in table_df.columns
@@ -698,7 +682,7 @@ def _render_monitor_leaderboard_table(dataframe, columns, formatters=None):
         rows_html.append(
             dedent(
                 f"""
-                <tr style="background: linear-gradient(180deg, #1B1F27 0%, #171B22 100%);">
+                <tr class="monitor-table-row">
                     {cell_html}
                 </tr>
                 """
@@ -708,20 +692,8 @@ def _render_monitor_leaderboard_table(dataframe, columns, formatters=None):
     st.markdown(
         dedent(
             f"""
-            <div style="
-                overflow-x: auto;
-                margin-top: 0.45rem;
-                border-radius: 18px;
-                border: 1px solid rgba(255,255,255,0.09);
-                background: linear-gradient(180deg, #161B22 0%, #131821 100%);
-                box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
-            ">
-                <table style="
-                    min-width: 100%;
-                    width: max-content;
-                    border-collapse: collapse;
-                    table-layout: auto;
-                ">
+            <div class="monitor-table-shell">
+                <table class="monitor-table">
                     <thead>
                         <tr>{header_html}</tr>
                     </thead>
@@ -1159,6 +1131,20 @@ def _render_monitor_notes(notes):
     st.markdown("".join(notes_html), unsafe_allow_html=True)
 
 
+def _render_monitor_active_filters(league_filter, table_view, team_filter, row_limit):
+    filter_items = [
+        ("Scope", league_filter),
+        ("Rows", "All" if row_limit is None else str(row_limit)),
+        ("Team", team_filter if team_filter != "All Teams" else "All clubs"),
+        ("View", table_view),
+    ]
+    chips = "".join(
+        f'<span class="monitor-filter-pill"><span class="monitor-filter-pill-label">{escape(label)}</span>{escape(value)}</span>'
+        for label, value in filter_items
+    )
+    st.markdown(f'<div class="monitor-filter-pill-row">{chips}</div>', unsafe_allow_html=True)
+
+
 def _format_team_profile_value(dataframe, column_name, formatter):
     if dataframe is None or dataframe.empty or column_name not in dataframe.columns:
         return "N/A"
@@ -1479,10 +1465,9 @@ def render_season_monitor(
         """
         <div class="monitor-hero">
             <div class="monitor-kicker">Season analytics</div>
-            <div class="monitor-title">Season outlook dashboard</div>
+            <div class="monitor-title">Driver terminal</div>
             <div class="monitor-copy">
-                Track the player and unit-level drivers behind the model: starting pitching quality, projected lineup strength,
-                bullpen stress, and which teams are being carried by offense versus run prevention.
+                Premium scan of pitchers, lineups, bullpens, and team-level model pressure.
             </div>
         </div>
         """,
@@ -1490,25 +1475,49 @@ def render_season_monitor(
     )
 
     team_filter_options = ["All Teams"] + sorted(projected_standings_df["Team"].tolist())
-    control_col_1, control_col_2, control_col_3 = st.columns([1, 1, 1.2])
+    st.markdown(
+        """
+        <div class="monitor-toolbar-shell">
+            <div class="monitor-toolbar-topline">
+                <div>
+                    <div class="monitor-toolbar-kicker">Driver controls</div>
+                    <div class="monitor-toolbar-title">Scope the board</div>
+                </div>
+                <div class="monitor-toolbar-note">Tight filters. Faster reads.</div>
+            </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    control_col_1, control_col_2, control_col_3 = st.columns([1.2, 1.15, 1.4])
     with control_col_1:
-        league_filter = st.selectbox(
+        st.markdown('<div class="monitor-toolbar-slot"><div class="monitor-toolbar-label">Scope</div>', unsafe_allow_html=True)
+        league_filter = st.radio(
             "Monitor Scope",
             SEASON_MONITOR_LEAGUE_OPTIONS,
             key="season_monitor_league_filter",
+            horizontal=True,
+            label_visibility="collapsed",
         )
+        st.markdown("</div>", unsafe_allow_html=True)
     with control_col_2:
-        table_view = st.selectbox(
+        st.markdown('<div class="monitor-toolbar-slot"><div class="monitor-toolbar-label">Rows</div>', unsafe_allow_html=True)
+        table_view = st.radio(
             "Table Size",
             SEASON_MONITOR_TABLE_OPTIONS,
             key="season_monitor_table_size",
+            horizontal=True,
+            label_visibility="collapsed",
         )
+        st.markdown("</div>", unsafe_allow_html=True)
     with control_col_3:
+        st.markdown('<div class="monitor-toolbar-slot"><div class="monitor-toolbar-label">Team</div>', unsafe_allow_html=True)
         team_filter = st.selectbox(
             "Team Lookup",
             team_filter_options,
             key="season_monitor_team_filter",
+            label_visibility="collapsed",
         )
+        st.markdown("</div>", unsafe_allow_html=True)
 
     impact_inputs = daily_board_inputs.copy() if daily_board_inputs is not None else None
     if impact_inputs is not None and not impact_inputs.empty:
@@ -1526,6 +1535,8 @@ def render_season_monitor(
     today_impact_cards = build_today_impact(impact_inputs, bullpen_stress_df)
 
     row_limit = _get_monitor_row_limit(table_view)
+    _render_monitor_active_filters(league_filter, table_view, team_filter, row_limit)
+    st.markdown("</div>", unsafe_allow_html=True)
     projected_standings_view = _slice_monitor_dataframe(
         _filter_monitor_team(_filter_monitor_dataframe(projected_standings_df, league_filter), team_filter),
         row_limit,
