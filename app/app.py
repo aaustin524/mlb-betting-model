@@ -1205,7 +1205,7 @@ def inject_app_styles():
         .monitor-toolbar-slot {
             min-height: 100%;
             padding: 0.68rem 0.72rem 0.56rem;
-            border-radius: 16px;
+            border-radius: 20px;
             background: linear-gradient(180deg, rgba(30, 41, 59, 0.80) 0%, rgba(15, 23, 42, 0.92) 100%);
             border: 1px solid rgba(100, 116, 139, 0.18);
             box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
@@ -1217,6 +1217,50 @@ def inject_app_styles():
             letter-spacing: 0.12em;
             text-transform: uppercase;
             margin-bottom: 0.45rem;
+        }
+        .monitor-toolbar-shell [data-testid="column"] {
+            align-self: stretch;
+        }
+        .monitor-toolbar-shell [data-testid="stRadio"] {
+            margin-top: 0.05rem;
+        }
+        .monitor-toolbar-shell [data-testid="stTextInput"] {
+            margin-bottom: 0.35rem;
+        }
+        .monitor-toolbar-shell [data-testid="stTextInput"] > div {
+            margin-top: 0;
+        }
+        .monitor-toolbar-shell [data-testid="stTextInput"] input {
+            min-height: 2.7rem;
+            border-radius: 999px !important;
+            font-size: 0.9rem !important;
+            font-weight: 650 !important;
+            padding-left: 0.95rem !important;
+            background: linear-gradient(180deg, rgba(15, 23, 42, 0.98) 0%, rgba(10, 17, 28, 0.98) 100%) !important;
+            border: 1px solid rgba(100, 116, 139, 0.20) !important;
+        }
+        .monitor-toolbar-shell [data-testid="stTextInput"] input::placeholder {
+            color: rgba(203, 213, 225, 0.46) !important;
+        }
+        .monitor-toolbar-shell [data-testid="stTextInput"] input:focus {
+            border-color: rgba(249, 115, 22, 0.34) !important;
+            box-shadow: 0 0 0 1px rgba(249, 115, 22, 0.12) !important;
+        }
+        .monitor-toolbar-shell [data-testid="stButton"] button {
+            min-height: 2.35rem;
+            border-radius: 999px !important;
+            padding: 0.35rem 0.72rem !important;
+            background: linear-gradient(180deg, rgba(51, 65, 85, 0.70) 0%, rgba(30, 41, 59, 0.92) 100%) !important;
+            border: 1px solid rgba(100, 116, 139, 0.20) !important;
+            color: var(--text-muted) !important;
+            box-shadow: none !important;
+            font-size: 0.76rem !important;
+            font-weight: 760 !important;
+        }
+        .monitor-toolbar-shell [data-testid="stButton"] button:hover {
+            border-color: rgba(249, 115, 22, 0.24) !important;
+            color: var(--text) !important;
+            background: linear-gradient(180deg, rgba(71, 85, 105, 0.72) 0%, rgba(30, 41, 59, 0.96) 100%) !important;
         }
         .monitor-filter-pill-row {
             display: flex;
@@ -2262,12 +2306,15 @@ def inject_app_styles():
             gap: 0.45rem;
             background: rgba(9, 18, 30, 0.72);
             padding: 0.28rem;
-            border-radius: 14px;
+            border-radius: 999px;
             border: 1px solid rgba(100, 116, 139, 0.14);
+        }
+        [data-testid="stRadio"] [role="radiogroup"] > label > div:first-child {
+            display: none !important;
         }
         [data-testid="stRadio"] [role="radiogroup"] label {
             min-height: 2.4rem;
-            border-radius: 12px !important;
+            border-radius: 999px !important;
             background: transparent !important;
             border: 1px solid transparent !important;
             padding: 0.34rem 0.7rem !important;
@@ -2275,12 +2322,12 @@ def inject_app_styles():
         }
         [data-testid="stRadio"] [role="radiogroup"] label:hover {
             background: rgba(255, 255, 255, 0.04) !important;
-            border-color: rgba(126, 155, 194, 0.12) !important;
+            border-color: rgba(100, 116, 139, 0.14) !important;
         }
         [data-testid="stRadio"] [role="radiogroup"] label:has(input:checked) {
-            background: linear-gradient(180deg, rgba(35, 55, 84, 0.98) 0%, rgba(20, 32, 50, 0.98) 100%) !important;
-            border-color: rgba(249, 115, 22, 0.26) !important;
-            box-shadow: inset 0 0 0 1px rgba(249, 115, 22, 0.06);
+            background: linear-gradient(180deg, rgba(249, 115, 22, 0.96) 0%, rgba(234, 88, 12, 0.96) 100%) !important;
+            border-color: rgba(251, 146, 60, 0.34) !important;
+            box-shadow: 0 10px 18px rgba(249, 115, 22, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.14);
         }
         [data-testid="stRadio"] [role="radiogroup"] label p {
             color: var(--text-muted) !important;
@@ -2289,7 +2336,7 @@ def inject_app_styles():
             font-weight: 700 !important;
         }
         [data-testid="stRadio"] [role="radiogroup"] label:has(input:checked) p {
-            color: var(--text) !important;
+            color: #FFF7ED !important;
         }
         [data-testid="stRadio"] label,
         [data-testid="stSelectbox"] label,

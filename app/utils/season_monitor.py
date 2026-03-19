@@ -68,7 +68,7 @@ PLAYOFF_ODDS_SIMS = 3000
 PLAYOFF_ODDS_SEED = 20260316
 STANDINGS_FILTER_OPTIONS = ["All", "AL", "NL"] + DIVISION_ORDER
 SEASON_MONITOR_LEAGUE_OPTIONS = ["MLB", "AL", "NL"]
-SEASON_MONITOR_TABLE_OPTIONS = ["Top 10", "Top 15", "Full Table"]
+SEASON_MONITOR_TABLE_OPTIONS = ["Top 10", "Top 25", "All"]
 
 
 def _normalize_team_name(team_name):
@@ -767,8 +767,8 @@ def _filter_monitor_dataframe(dataframe, league_filter):
 def _get_monitor_row_limit(table_view):
     if table_view == "Top 10":
         return 10
-    if table_view == "Top 15":
-        return 15
+    if table_view == "Top 25":
+        return 25
     return None
 
 
@@ -1145,6 +1145,30 @@ def _render_monitor_active_filters(league_filter, table_view, team_filter, row_l
     st.markdown(f'<div class="monitor-filter-pill-row">{chips}</div>', unsafe_allow_html=True)
 
 
+def _resolve_monitor_team_filter(team_filter_options):
+    search_value = st.text_input(
+        "Team Lookup",
+        key="season_monitor_team_search",
+        value=st.session_state.get("season_monitor_team_search", ""),
+        placeholder="Search team or leave blank",
+        label_visibility="collapsed",
+    ).strip()
+
+    if not search_value:
+        return "All Teams"
+
+    normalized_search = search_value.lower()
+    exact_match = next((team for team in team_filter_options if team.lower() == normalized_search), None)
+    if exact_match:
+        return exact_match
+
+    partial_match = next((team for team in team_filter_options if normalized_search in team.lower()), None)
+    if partial_match:
+        return partial_match
+
+    return "All Teams"
+
+
 def _format_team_profile_value(dataframe, column_name, formatter):
     if dataframe is None or dataframe.empty or column_name not in dataframe.columns:
         return "N/A"
@@ -1488,7 +1512,7 @@ def render_season_monitor(
         """,
         unsafe_allow_html=True,
     )
-    control_col_1, control_col_2, control_col_3 = st.columns([1.2, 1.15, 1.4])
+    control_col_1, control_col_2, control_col_3 = st.columns([1.15, 1.1, 1.55])
     with control_col_1:
         st.markdown('<div class="monitor-toolbar-slot"><div class="monitor-toolbar-label">Scope</div>', unsafe_allow_html=True)
         league_filter = st.radio(
@@ -1511,12 +1535,18 @@ def render_season_monitor(
         st.markdown("</div>", unsafe_allow_html=True)
     with control_col_3:
         st.markdown('<div class="monitor-toolbar-slot"><div class="monitor-toolbar-label">Team</div>', unsafe_allow_html=True)
-        team_filter = st.selectbox(
-            "Team Lookup",
-            team_filter_options,
-            key="season_monitor_team_filter",
-            label_visibility="collapsed",
-        )
+        team_filter = _resolve_monitor_team_filter(team_filter_options)
+        quick_team_options = ["All Teams"] + team_filter_options[1:3]
+        quick_team_cols = st.columns(len(quick_team_options))
+        for quick_col, quick_team in zip(quick_team_cols, quick_team_options):
+            with quick_col:
+                if st.button(
+                    "All" if quick_team == "All Teams" else quick_team.split()[-1],
+                    key=f"season_monitor_team_quick_{quick_team}",
+                    use_container_width=True,
+                ):
+                    st.session_state["season_monitor_team_search"] = "" if quick_team == "All Teams" else quick_team
+                    st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
 
     impact_inputs = daily_board_inputs.copy() if daily_board_inputs is not None else None
