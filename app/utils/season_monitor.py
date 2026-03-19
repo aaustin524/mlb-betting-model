@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import math
 import sqlite3
-from html import escape
 from textwrap import dedent
 
 import numpy as np
@@ -1123,18 +1122,6 @@ def _render_monitor_notes(notes):
     st.markdown("".join(notes_html), unsafe_allow_html=True)
 
 
-def _render_monitor_active_filters(league_filter, row_limit):
-    filter_items = [
-        ("Scope", league_filter),
-        ("Rows", "All" if row_limit is None else str(row_limit)),
-    ]
-    chips = "".join(
-        f'<span class="monitor-filter-pill"><span class="monitor-filter-pill-label">{escape(label)}</span>{escape(value)}</span>'
-        for label, value in filter_items
-    )
-    st.markdown(f'<div class="monitor-filter-pill-row">{chips}</div>', unsafe_allow_html=True)
-
-
 def _format_team_profile_value(dataframe, column_name, formatter):
     if dataframe is None or dataframe.empty or column_name not in dataframe.columns:
         return "N/A"
@@ -1359,6 +1346,50 @@ def _filter_standings_view(standings_df, wildcard_df, filter_value):
     )
 
 
+def _render_standings_filter_bar():
+    st.markdown(
+        """
+        <div class="monitor-toolbar-shell">
+            <div class="monitor-toolbar-topline">
+                <div>
+                    <div class="monitor-toolbar-kicker">Race controls</div>
+                    <div class="monitor-toolbar-title">Standings scope</div>
+                </div>
+            </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    scope_col, division_col = st.columns([1.0, 1.6])
+    with scope_col:
+        st.markdown('<div class="monitor-toolbar-slot"><div class="monitor-toolbar-label">League</div>', unsafe_allow_html=True)
+        league_scope = st.radio(
+            "Standings League",
+            ["All", "AL", "NL"],
+            key="standings_league_scope",
+            horizontal=True,
+            label_visibility="collapsed",
+        )
+        st.markdown("</div>", unsafe_allow_html=True)
+    with division_col:
+        division_options = ["All"]
+        if league_scope in {"AL", "NL"}:
+            division_options.extend([division for division in DIVISION_ORDER if division.startswith(league_scope)])
+        st.markdown('<div class="monitor-toolbar-slot"><div class="monitor-toolbar-label">Division</div>', unsafe_allow_html=True)
+        division_scope = st.radio(
+            "Standings Division",
+            division_options,
+            key="standings_division_scope",
+            horizontal=True,
+            label_visibility="collapsed",
+        )
+        st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    if league_scope == "All" or division_scope == "All":
+        return league_scope
+    return division_scope
+
+
 def render_season_monitor(
     team_ratings_df,
     pitcher_ratings_df=None,
@@ -1510,7 +1541,6 @@ def render_season_monitor(
     today_impact_cards = build_today_impact(impact_inputs, bullpen_stress_df)
 
     row_limit = _get_monitor_row_limit(table_view)
-    _render_monitor_active_filters(league_filter, row_limit)
     st.markdown("</div>", unsafe_allow_html=True)
     projected_standings_view = _slice_monitor_dataframe(
         _filter_monitor_dataframe(projected_standings_df, league_filter),
@@ -1805,12 +1835,7 @@ def render_current_standings(team_ratings_df):
         wildcard_df["Cutline Trend"] = wildcard_df.apply(_build_cutline_trend, axis=1)
     playoff_summary = build_playoff_outlook_summary(standings_df, wildcard_df)
 
-    filter_value = st.selectbox(
-        "Standings View",
-        options=STANDINGS_FILTER_OPTIONS,
-        index=0,
-        help="Filter the race board to all teams, a single league, or one division.",
-    )
+    filter_value = _render_standings_filter_bar()
     filtered_standings_df, filtered_wildcard_df = _filter_standings_view(standings_df, wildcard_df, filter_value)
 
     _render_monitor_section_header(

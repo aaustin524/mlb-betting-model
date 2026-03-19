@@ -1217,31 +1217,6 @@ def inject_app_styles():
         .monitor-toolbar-shell [data-testid="stRadio"] {
             margin-top: 0.05rem;
         }
-        .monitor-filter-pill-row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-            margin-top: 0.55rem;
-        }
-        .monitor-filter-pill {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.42rem;
-            padding: 0.36rem 0.68rem;
-            border-radius: 999px;
-            background: rgba(15, 23, 42, 0.76);
-            border: 1px solid rgba(100, 116, 139, 0.18);
-            color: var(--text);
-            font-size: 0.78rem;
-            font-weight: 700;
-        }
-        .monitor-filter-pill-label {
-            color: var(--text-muted);
-            font-size: 0.66rem;
-            font-weight: 800;
-            letter-spacing: 0.1em;
-            text-transform: uppercase;
-        }
         .leader-row {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
