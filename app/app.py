@@ -4114,20 +4114,22 @@ def render_board_view_controls(display_df):
         st.markdown('<div class="board-view-card">', unsafe_allow_html=True)
         control_col_1, control_col_2 = st.columns(2)
         with control_col_1:
-            signal_filter = st.selectbox(
+            signal_filter = st.radio(
                 "Signal",
                 ["All Games", "Strong Bets", "Leans", "Playable Only", "Passes Only"],
                 key="board_signal_filter",
+                horizontal=True,
             )
         with control_col_2:
-            angle_filter = st.selectbox(
+            angle_filter = st.radio(
                 "Angle",
                 ["All Angles", "Side Angles", "Total Angles", "Favorite Sides", "Underdog Sides"],
                 key="board_angle_filter",
+                horizontal=True,
             )
         control_col_3, control_col_4 = st.columns(2)
         with control_col_3:
-            sort_option = st.selectbox(
+            sort_option = st.radio(
                 "Sort",
                 [
                     "Schedule Order",
@@ -4138,6 +4140,7 @@ def render_board_view_controls(display_df):
                     "Closest Game",
                 ],
                 key="board_sort_option",
+                horizontal=True,
             )
         with control_col_4:
             view_mode = st.radio(
@@ -4149,30 +4152,18 @@ def render_board_view_controls(display_df):
 
         filter_col_1, filter_col_2 = st.columns(2)
         with filter_col_1:
-            side_value_filter = st.selectbox(
+            side_value_filter = st.radio(
                 "Side Value",
                 ["All Side Angles", "Favorite Value", "Underdog Value", "No Side Angle"],
                 key="board_side_value_filter",
+                horizontal=True,
             )
         with filter_col_2:
-            total_value_filter = st.selectbox(
+            total_value_filter = st.radio(
                 "Total Value",
                 ["All Total Angles", "Over Value", "Under Value", "No Total Angle"],
                 key="board_total_value_filter",
-            )
-        sportsbook_col, _ = st.columns([1.2, 0.8])
-        with sportsbook_col:
-            sportsbook_options = ["All Sportsbooks"] + sorted(
-                {
-                    str(book)
-                    for book in display_df.get("Sportsbook", pd.Series(dtype="object")).dropna().tolist()
-                    if str(book).strip()
-                }
-            )
-            sportsbook_filter = st.selectbox(
-                "Sportsbook",
-                sportsbook_options,
-                key="board_sportsbook_filter",
+                horizontal=True,
             )
         st.markdown('</div>', unsafe_allow_html=True)
 
@@ -4243,9 +4234,6 @@ def render_board_view_controls(display_df):
     elif total_value_filter == "No Total Angle":
         filtered_df = filtered_df.loc[filtered_df["Best Total Bet"] == "Pass"]
 
-    if sportsbook_filter != "All Sportsbooks":
-        filtered_df = filtered_df.loc[filtered_df["Sportsbook"] == sportsbook_filter]
-
     if not filtered_df.empty:
         filtered_df = filtered_df.copy()
         row_scores = filtered_df.apply(get_board_row_scores, axis=1, result_type="expand")
@@ -4283,7 +4271,6 @@ def render_board_view_controls(display_df):
         ("Angle", angle_filter),
         ("Side", side_value_filter),
         ("Total", total_value_filter),
-        ("Book", sportsbook_filter if sportsbook_filter != "All Sportsbooks" else "Market Wide"),
         ("View", view_mode),
         ("Sort", sort_option),
     ]
