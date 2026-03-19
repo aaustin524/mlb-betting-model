@@ -225,35 +225,37 @@ def inject_app_styles():
         <style>
         @import url('https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap');
         :root {
-            --bg: #08111f;
-            --bg-elevated: #0d1726;
-            --bg-card: #121d2d;
-            --bg-card-alt: #162336;
-            --border: rgba(126, 155, 194, 0.18);
-            --border-strong: rgba(126, 155, 194, 0.28);
-            --text: #f4f8fc;
-            --text-muted: #94a7bd;
-            --positive: #36d48c;
-            --negative: #ff6b6b;
-            --warning: #ffcf5a;
-            --totals: #6ecbff;
-            --accent: #77b7ff;
-            --accent-soft: rgba(119, 183, 255, 0.16);
+            --bg: #0F172A;
+            --bg-elevated: #162033;
+            --bg-card: #1E293B;
+            --bg-card-alt: #172133;
+            --border: rgba(100, 116, 139, 0.28);
+            --border-strong: rgba(100, 116, 139, 0.42);
+            --text: #F8FAFC;
+            --text-muted: #CBD5E1;
+            --neutral: #64748B;
+            --positive: #22C55E;
+            --negative: #EF4444;
+            --warning: #F97316;
+            --totals: #64748B;
+            --accent: #F97316;
+            --accent-hover: #EA580C;
+            --accent-soft: rgba(249, 115, 22, 0.18);
             --shadow-lg: 0 18px 48px rgba(0, 0, 0, 0.34);
         }
         .stApp {
             background:
-                radial-gradient(circle at top left, rgba(54, 212, 140, 0.08), transparent 26%),
-                radial-gradient(circle at top right, rgba(110, 203, 255, 0.10), transparent 22%),
-                linear-gradient(180deg, #07101d 0%, #0a1524 52%, #09111d 100%);
+                radial-gradient(circle at top left, rgba(249, 115, 22, 0.08), transparent 26%),
+                radial-gradient(circle at top right, rgba(34, 197, 94, 0.06), transparent 22%),
+                linear-gradient(180deg, #0F172A 0%, #111827 52%, #0F172A 100%);
             color: var(--text);
             font-family: "Barlow", "Avenir Next", sans-serif;
         }
         html, body, [data-testid="stAppViewContainer"], [data-testid="stMain"], .main {
             background:
-                radial-gradient(circle at top left, rgba(54, 212, 140, 0.08), transparent 26%),
-                radial-gradient(circle at top right, rgba(110, 203, 255, 0.10), transparent 22%),
-                linear-gradient(180deg, #07101d 0%, #0a1524 52%, #09111d 100%) !important;
+                radial-gradient(circle at top left, rgba(249, 115, 22, 0.08), transparent 26%),
+                radial-gradient(circle at top right, rgba(34, 197, 94, 0.06), transparent 22%),
+                linear-gradient(180deg, #0F172A 0%, #111827 52%, #0F172A 100%) !important;
             color: var(--text);
             font-family: "Barlow", "Avenir Next", sans-serif !important;
         }
@@ -279,17 +281,124 @@ def inject_app_styles():
             color: var(--text);
         }
         div[data-testid="stMetric"] {
-            background: linear-gradient(180deg, #1C1F26 0%, #181C23 100%);
+            background: linear-gradient(180deg, var(--bg-card) 0%, var(--bg-card-alt) 100%);
             border: 1px solid var(--border);
             border-radius: 16px;
             padding: 0.8rem 1rem;
-            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
+            box-shadow: var(--shadow-lg);
         }
         div[data-testid="stMetricLabel"] {
             color: var(--text-muted);
         }
         div[data-testid="stMetricValue"] {
             color: var(--text);
+        }
+        button,
+        .stButton > button,
+        .stDownloadButton > button,
+        button[kind],
+        button[kind="primary"],
+        button[kind="secondary"] {
+            background: linear-gradient(180deg, var(--accent) 0%, var(--accent-hover) 100%) !important;
+            color: #ffffff !important;
+            border: 1px solid rgba(249, 115, 22, 0.34) !important;
+            border-radius: 14px !important;
+            box-shadow: none !important;
+        }
+        button:hover,
+        .stButton > button:hover,
+        .stDownloadButton > button:hover,
+        button[kind]:hover {
+            background: linear-gradient(180deg, #FB923C 0%, var(--accent) 100%) !important;
+            border-color: rgba(249, 115, 22, 0.54) !important;
+            color: #ffffff !important;
+            box-shadow: none !important;
+        }
+        button:focus,
+        button:focus-visible,
+        .stButton > button:focus,
+        .stButton > button:focus-visible,
+        .stDownloadButton > button:focus,
+        .stDownloadButton > button:focus-visible,
+        input:focus,
+        input:focus-visible,
+        textarea:focus,
+        textarea:focus-visible,
+        select:focus,
+        select:focus-visible {
+            outline: none !important;
+            border-color: var(--accent) !important;
+            box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.20) !important;
+        }
+        input, select, textarea {
+            background: var(--bg-card) !important;
+            color: var(--text) !important;
+            border: 1px solid var(--border) !important;
+            box-shadow: none !important;
+        }
+        div[data-baseweb="input"] > div,
+        div[data-baseweb="select"] > div,
+        div[data-baseweb="base-input"] > div {
+            background: var(--bg-card) !important;
+            border: 1px solid var(--border) !important;
+            box-shadow: none !important;
+        }
+        div[data-baseweb="input"]:focus-within > div,
+        div[data-baseweb="select"]:focus-within > div,
+        div[data-baseweb="base-input"]:focus-within > div {
+            border-color: var(--accent) !important;
+            box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.18) !important;
+        }
+        div[data-baseweb="input"] input,
+        div[data-baseweb="select"] input,
+        div[data-baseweb="base-input"] input,
+        textarea {
+            color: var(--text) !important;
+        }
+        [data-testid="stSlider"] [role="slider"] {
+            background: var(--accent) !important;
+            border: 2px solid #fff !important;
+            box-shadow: none !important;
+        }
+        [data-testid="stSlider"] div[data-baseweb="slider"] > div > div {
+            background: var(--neutral, #64748B) !important;
+        }
+        [data-testid="stSlider"] div[data-baseweb="slider"] div[style*="background"] {
+            background: var(--accent) !important;
+        }
+        [data-testid="stCheckbox"] label,
+        [data-testid="stRadio"] label {
+            color: var(--text) !important;
+        }
+        [data-testid="stCheckbox"] input:checked + div,
+        [data-testid="stCheckbox"] input:checked + div::before {
+            background-color: var(--accent) !important;
+            border-color: var(--accent) !important;
+            box-shadow: none !important;
+        }
+        [data-testid="stTabs"] [data-baseweb="tab"] {
+            box-shadow: none !important;
+        }
+        [data-testid="stTabs"] [aria-selected="true"] {
+            background: rgba(249, 115, 22, 0.14) !important;
+            color: var(--text) !important;
+            border-color: rgba(249, 115, 22, 0.32) !important;
+            box-shadow: none !important;
+        }
+        a {
+            color: #FB923C !important;
+        }
+        a:hover {
+            color: #FED7AA !important;
+        }
+        [style*="#1f77b4"],
+        [style*="#1976d2"],
+        [style*="#1565c0"],
+        [style*="#4e8df5"],
+        [style*="rgb(31, 119, 180)"],
+        [style*="rgb(25, 118, 210)"] {
+            border-color: var(--border) !important;
+            box-shadow: none !important;
         }
         .hero-panel {
             padding: 1.4rem 1.6rem;
