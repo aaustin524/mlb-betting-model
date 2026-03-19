@@ -2,13 +2,20 @@ import os
 import sys
 import math
 from datetime import datetime
+from html import escape
 from textwrap import dedent
+from urllib.parse import quote
 
 import pandas as pd
 import requests
 import streamlit as st
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+CURRENT_DIR = os.path.abspath(os.path.dirname(__file__))
+PROJECT_ROOT = os.path.abspath(os.path.join(CURRENT_DIR, ".."))
+
+for path in [CURRENT_DIR, PROJECT_ROOT]:
+    if path not in sys.path:
+        sys.path.insert(0, path)
 
 from db.schema import initialize_database
 from model.game_engine import simulate_matchup
@@ -69,6 +76,72 @@ PREFERRED_SPORTSBOOKS = [
     "betmgm",
     "caesars",
 ]
+
+TEAM_BRANDING = {
+    "Arizona Diamondbacks": {"abbr": "ARI", "primary": "#A71930", "secondary": "#E3D4AD"},
+    "Atlanta Braves": {"abbr": "ATL", "primary": "#CE1141", "secondary": "#13274F"},
+    "Baltimore Orioles": {"abbr": "BAL", "primary": "#DF4601", "secondary": "#000000"},
+    "Boston Red Sox": {"abbr": "BOS", "primary": "#BD3039", "secondary": "#0C2340"},
+    "Chicago Cubs": {"abbr": "CHC", "primary": "#0E3386", "secondary": "#CC3433"},
+    "Chicago White Sox": {"abbr": "CWS", "primary": "#111111", "secondary": "#C4CED4"},
+    "Cincinnati Reds": {"abbr": "CIN", "primary": "#C6011F", "secondary": "#000000"},
+    "Cleveland Guardians": {"abbr": "CLE", "primary": "#0C2340", "secondary": "#E31937"},
+    "Colorado Rockies": {"abbr": "COL", "primary": "#33006F", "secondary": "#C4CED4"},
+    "Detroit Tigers": {"abbr": "DET", "primary": "#0C2340", "secondary": "#FA4616"},
+    "Houston Astros": {"abbr": "HOU", "primary": "#002D62", "secondary": "#EB6E1F"},
+    "Kansas City Royals": {"abbr": "KC", "primary": "#004687", "secondary": "#BD9B60"},
+    "Los Angeles Angels": {"abbr": "LAA", "primary": "#BA0021", "secondary": "#862633"},
+    "Los Angeles Dodgers": {"abbr": "LAD", "primary": "#005A9C", "secondary": "#EF3E42"},
+    "Miami Marlins": {"abbr": "MIA", "primary": "#00A3E0", "secondary": "#EF3340"},
+    "Milwaukee Brewers": {"abbr": "MIL", "primary": "#12284B", "secondary": "#FFC52F"},
+    "Minnesota Twins": {"abbr": "MIN", "primary": "#002B5C", "secondary": "#D31145"},
+    "New York Mets": {"abbr": "NYM", "primary": "#002D72", "secondary": "#FF5910"},
+    "New York Yankees": {"abbr": "NYY", "primary": "#132448", "secondary": "#C4CED3"},
+    "Oakland Athletics": {"abbr": "OAK", "primary": "#003831", "secondary": "#EFB21E"},
+    "Philadelphia Phillies": {"abbr": "PHI", "primary": "#E81828", "secondary": "#002D72"},
+    "Pittsburgh Pirates": {"abbr": "PIT", "primary": "#27251F", "secondary": "#FDB827"},
+    "San Diego Padres": {"abbr": "SD", "primary": "#2F241D", "secondary": "#FFC425"},
+    "San Francisco Giants": {"abbr": "SF", "primary": "#FD5A1E", "secondary": "#27251F"},
+    "Seattle Mariners": {"abbr": "SEA", "primary": "#0C2C56", "secondary": "#005C5C"},
+    "St. Louis Cardinals": {"abbr": "STL", "primary": "#C41E3A", "secondary": "#0C2340"},
+    "Tampa Bay Rays": {"abbr": "TB", "primary": "#092C5C", "secondary": "#8FBCE6"},
+    "Texas Rangers": {"abbr": "TEX", "primary": "#003278", "secondary": "#C0111F"},
+    "Toronto Blue Jays": {"abbr": "TOR", "primary": "#134A8E", "secondary": "#1D2D5C"},
+    "Washington Nationals": {"abbr": "WSH", "primary": "#AB0003", "secondary": "#14225A"},
+}
+
+TEAM_LOGO_SLUGS = {
+    "Arizona Diamondbacks": "ari",
+    "Atlanta Braves": "atl",
+    "Baltimore Orioles": "bal",
+    "Boston Red Sox": "bos",
+    "Chicago Cubs": "chc",
+    "Chicago White Sox": "chw",
+    "Cincinnati Reds": "cin",
+    "Cleveland Guardians": "cle",
+    "Colorado Rockies": "col",
+    "Detroit Tigers": "det",
+    "Houston Astros": "hou",
+    "Kansas City Royals": "kc",
+    "Los Angeles Angels": "laa",
+    "Los Angeles Dodgers": "lad",
+    "Miami Marlins": "mia",
+    "Milwaukee Brewers": "mil",
+    "Minnesota Twins": "min",
+    "New York Mets": "nym",
+    "New York Yankees": "nyy",
+    "Oakland Athletics": "oak",
+    "Philadelphia Phillies": "phi",
+    "Pittsburgh Pirates": "pit",
+    "San Diego Padres": "sd",
+    "San Francisco Giants": "sf",
+    "Seattle Mariners": "sea",
+    "St. Louis Cardinals": "stl",
+    "Tampa Bay Rays": "tb",
+    "Texas Rangers": "tex",
+    "Toronto Blue Jays": "tor",
+    "Washington Nationals": "wsh",
+}
 
 INPUT_COLUMNS = [
     "Away",
@@ -148,33 +221,39 @@ def inject_app_styles():
     st.markdown(
         """
         <style>
+        @import url('https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap');
         :root {
-            --bg: #0E1117;
-            --bg-elevated: #141821;
-            --bg-card: #1C1F26;
-            --bg-card-alt: #20242D;
-            --border: #2C313C;
-            --text: #E6E6E6;
-            --text-muted: #A0A0A0;
-            --positive: #2ECC71;
-            --negative: #E74C3C;
-            --warning: #F1C40F;
-            --totals: #F39C12;
-            --accent: #8B93A7;
+            --bg: #08111f;
+            --bg-elevated: #0d1726;
+            --bg-card: #121d2d;
+            --bg-card-alt: #162336;
+            --border: rgba(126, 155, 194, 0.18);
+            --border-strong: rgba(126, 155, 194, 0.28);
+            --text: #f4f8fc;
+            --text-muted: #94a7bd;
+            --positive: #36d48c;
+            --negative: #ff6b6b;
+            --warning: #ffcf5a;
+            --totals: #6ecbff;
+            --accent: #77b7ff;
+            --accent-soft: rgba(119, 183, 255, 0.16);
+            --shadow-lg: 0 18px 48px rgba(0, 0, 0, 0.34);
         }
         .stApp {
             background:
-                radial-gradient(circle at top left, rgba(46, 204, 113, 0.05), transparent 22%),
-                radial-gradient(circle at top right, rgba(243, 156, 18, 0.04), transparent 18%),
-                linear-gradient(180deg, #0E1117 0%, #10141B 100%);
+                radial-gradient(circle at top left, rgba(54, 212, 140, 0.08), transparent 26%),
+                radial-gradient(circle at top right, rgba(110, 203, 255, 0.10), transparent 22%),
+                linear-gradient(180deg, #07101d 0%, #0a1524 52%, #09111d 100%);
             color: var(--text);
+            font-family: "Barlow", "Avenir Next", sans-serif;
         }
         html, body, [data-testid="stAppViewContainer"], [data-testid="stMain"], .main {
             background:
-                radial-gradient(circle at top left, rgba(46, 204, 113, 0.05), transparent 22%),
-                radial-gradient(circle at top right, rgba(243, 156, 18, 0.04), transparent 18%),
-                linear-gradient(180deg, #0E1117 0%, #10141B 100%) !important;
+                radial-gradient(circle at top left, rgba(54, 212, 140, 0.08), transparent 26%),
+                radial-gradient(circle at top right, rgba(110, 203, 255, 0.10), transparent 22%),
+                linear-gradient(180deg, #07101d 0%, #0a1524 52%, #09111d 100%) !important;
             color: var(--text);
+            font-family: "Barlow", "Avenir Next", sans-serif !important;
         }
         header[data-testid="stHeader"] {
             background: rgba(14, 17, 23, 0) !important;
@@ -183,8 +262,13 @@ def inject_app_styles():
             display: none !important;
         }
         .block-container {
-            padding-top: 1.5rem;
+            max-width: 1440px;
+            padding-top: 1.4rem;
             padding-bottom: 2rem;
+        }
+        h1, h2, h3, h4, h5, h6 {
+            font-family: "Space Grotesk", "Barlow", sans-serif;
+            letter-spacing: -0.02em;
         }
         h1, h2, h3, h4, h5, h6, p, label, span, div {
             color: inherit;
@@ -207,10 +291,11 @@ def inject_app_styles():
         }
         .hero-panel {
             padding: 1.4rem 1.6rem;
-            border-radius: 22px;
-            border: 1px solid var(--border);
-            background: linear-gradient(135deg, #171B22 0%, #1C1F26 100%);
-            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.22);
+            border-radius: 24px;
+            border: 1px solid var(--border-strong);
+            background:
+                linear-gradient(135deg, rgba(18, 29, 45, 0.96) 0%, rgba(10, 22, 38, 0.98) 100%);
+            box-shadow: var(--shadow-lg);
             margin-bottom: 1rem;
         }
         .hero-grid {
@@ -220,16 +305,16 @@ def inject_app_styles():
             align-items: start;
         }
         .hero-kicker {
-            color: var(--totals);
+            color: var(--accent);
             text-transform: uppercase;
-            letter-spacing: 0.12em;
+            letter-spacing: 0.14em;
             font-size: 0.72rem;
-            font-weight: 700;
+            font-weight: 800;
             margin-bottom: 0.45rem;
         }
         .hero-title {
             color: var(--text);
-            font-size: 2.35rem;
+            font-size: 2.55rem;
             font-weight: 800;
             margin: 0;
         }
@@ -1237,6 +1322,494 @@ def inject_app_styles():
             font-weight: 760;
             margin-top: 0.25rem;
         }
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 0.8rem;
+        }
+        .summary-stat-card {
+            border-radius: 18px;
+            padding: 0.95rem 1rem;
+            background:
+                radial-gradient(circle at top left, rgba(119, 183, 255, 0.12), transparent 34%),
+                linear-gradient(180deg, rgba(18, 29, 45, 0.98) 0%, rgba(11, 21, 34, 0.98) 100%);
+            border: 1px solid var(--border);
+            box-shadow: 0 14px 32px rgba(0, 0, 0, 0.22);
+        }
+        .summary-stat-card.accent-positive {
+            border-color: rgba(54, 212, 140, 0.28);
+        }
+        .summary-stat-card.accent-warning {
+            border-color: rgba(255, 207, 90, 0.28);
+        }
+        .summary-stat-card.accent-total {
+            border-color: rgba(110, 203, 255, 0.28);
+        }
+        .summary-stat-label {
+            color: var(--text-muted);
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+        .summary-stat-value {
+            color: var(--text);
+            font-family: "Space Grotesk", "Barlow", sans-serif;
+            font-size: 1.6rem;
+            font-weight: 700;
+            margin-top: 0.35rem;
+        }
+        .summary-stat-context {
+            color: var(--text-muted);
+            font-size: 0.84rem;
+            margin-top: 0.28rem;
+            line-height: 1.45;
+        }
+        .sportsbook-toolbar {
+            border-radius: 20px;
+            padding: 0.95rem 1rem;
+            background:
+                radial-gradient(circle at top left, rgba(119, 183, 255, 0.10), transparent 30%),
+                linear-gradient(180deg, rgba(18, 29, 45, 0.98) 0%, rgba(10, 20, 34, 0.98) 100%);
+            border: 1px solid rgba(126, 155, 194, 0.18);
+            box-shadow: 0 14px 32px rgba(0, 0, 0, 0.22);
+            margin-bottom: 0.85rem;
+        }
+        .sportsbook-toolbar-kicker {
+            color: var(--accent);
+            font-size: 0.68rem;
+            font-weight: 800;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+        }
+        .sportsbook-toolbar-title {
+            color: var(--text);
+            font-family: "Space Grotesk", "Barlow", sans-serif;
+            font-size: 1.15rem;
+            font-weight: 700;
+            margin-top: 0.25rem;
+        }
+        .sportsbook-toolbar-copy {
+            color: var(--text-muted);
+            font-size: 0.82rem;
+            margin-top: 0.22rem;
+        }
+        .active-filter-strip {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.45rem;
+            margin-top: 0.75rem;
+        }
+        .active-filter-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            border-radius: 999px;
+            padding: 0.34rem 0.72rem;
+            border: 1px solid rgba(126, 155, 194, 0.16);
+            background: rgba(255, 255, 255, 0.03);
+        }
+        .active-filter-label {
+            color: var(--text-muted);
+            font-size: 0.68rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+        .active-filter-value {
+            color: var(--text);
+            font-size: 0.78rem;
+            font-weight: 700;
+        }
+        .matchup-board-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 0.9rem;
+        }
+        .matchup-card {
+            position: relative;
+            overflow: hidden;
+            border-radius: 22px;
+            background:
+                radial-gradient(circle at top left, rgba(119, 183, 255, 0.12), transparent 28%),
+                linear-gradient(180deg, rgba(18, 29, 45, 0.98) 0%, rgba(10, 20, 34, 0.98) 100%);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-lg);
+            transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+        }
+        .matchup-card:hover {
+            transform: translateY(-2px);
+            border-color: rgba(119, 183, 255, 0.28);
+            box-shadow: 0 22px 52px rgba(0, 0, 0, 0.38);
+        }
+        .matchup-card::before {
+            content: "";
+            position: absolute;
+            inset: 0 auto 0 0;
+            width: 6px;
+            background: #445065;
+        }
+        .matchup-card.strong::before {
+            background: linear-gradient(180deg, #36d48c 0%, #1fae69 100%);
+        }
+        .matchup-card.lean::before {
+            background: linear-gradient(180deg, #ffcf5a 0%, #ffad33 100%);
+        }
+        .matchup-card.total::before {
+            background: linear-gradient(180deg, #6ecbff 0%, #2d9cff 100%);
+        }
+        .matchup-card.negative::before {
+            background: linear-gradient(180deg, #ff7e7e 0%, #ff5252 100%);
+        }
+        .matchup-card-inner {
+            padding: 1rem 1.05rem 0.98rem;
+        }
+        .matchup-header {
+            display: flex;
+            justify-content: space-between;
+            gap: 0.9rem;
+            align-items: flex-start;
+        }
+        .matchup-kicker {
+            color: var(--accent);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            font-size: 0.7rem;
+            font-weight: 800;
+        }
+        .matchup-title {
+            color: var(--text);
+            font-family: "Space Grotesk", "Barlow", sans-serif;
+            font-size: 1.34rem;
+            font-weight: 700;
+            line-height: 1.08;
+            margin-top: 0.22rem;
+        }
+        .matchup-copy {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin-top: 0.24rem;
+        }
+        .matchup-status-stack {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 0.35rem;
+        }
+        .recommendation-strip {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.65rem;
+            margin-top: 0.78rem;
+        }
+        .recommendation-card {
+            border-radius: 18px;
+            padding: 0.76rem 0.82rem;
+            border: 1px solid rgba(126, 155, 194, 0.14);
+            background: linear-gradient(180deg, rgba(21, 33, 50, 0.96) 0%, rgba(11, 20, 33, 0.98) 100%);
+        }
+        .recommendation-card.side {
+            border-color: rgba(54, 212, 140, 0.24);
+        }
+        .recommendation-card.total {
+            border-color: rgba(110, 203, 255, 0.24);
+        }
+        .recommendation-label {
+            color: var(--text-muted);
+            font-size: 0.68rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+        .recommendation-pick {
+            color: var(--text);
+            font-family: "Space Grotesk", "Barlow", sans-serif;
+            font-size: 1.02rem;
+            font-weight: 700;
+            margin-top: 0.18rem;
+        }
+        .recommendation-copy {
+            color: var(--text-muted);
+            font-size: 0.77rem;
+            line-height: 1.38;
+            margin-top: 0.2rem;
+        }
+        .matchup-teams-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.7rem;
+            margin-top: 0.75rem;
+        }
+        .team-card {
+            border-radius: 18px;
+            padding: 0.82rem 0.88rem;
+            background: linear-gradient(180deg, rgba(22, 35, 54, 0.96) 0%, rgba(13, 23, 38, 0.98) 100%);
+            border: 1px solid rgba(126, 155, 194, 0.14);
+        }
+        .team-card-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.7rem;
+        }
+        .team-logo {
+            width: 42px;
+            height: 42px;
+            border-radius: 14px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 8px 18px rgba(0, 0, 0, 0.20);
+        }
+        .team-logo img {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        .team-logo-name {
+            color: var(--text);
+            font-family: "Space Grotesk", "Barlow", sans-serif;
+            font-size: 1.02rem;
+            font-weight: 700;
+            line-height: 1.1;
+        }
+        .team-row-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.55rem;
+            margin-bottom: 0.22rem;
+        }
+        .team-row-brand .team-logo {
+            width: 34px;
+            height: 34px;
+            border-radius: 12px;
+        }
+        .team-row-brand .team-logo-name {
+            font-size: 0.94rem;
+        }
+        .team-card.favorite {
+            border-color: rgba(54, 212, 140, 0.32);
+            box-shadow: inset 0 0 0 1px rgba(54, 212, 140, 0.05);
+        }
+        .team-card-label {
+            color: var(--text-muted);
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+        .team-card-name {
+            color: var(--text);
+            font-family: "Space Grotesk", "Barlow", sans-serif;
+            font-size: 1.04rem;
+            font-weight: 700;
+            margin-top: 0.24rem;
+        }
+        .team-card-prob {
+            color: var(--text);
+            font-size: 1.38rem;
+            font-weight: 800;
+            margin-top: 0.38rem;
+        }
+        .team-card-prob.positive {
+            color: var(--positive);
+        }
+        .team-card-prob.neutral {
+            color: var(--totals);
+        }
+        .team-card-meta {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 0.45rem;
+            margin-top: 0.55rem;
+        }
+        .mini-stat {
+            border-radius: 12px;
+            padding: 0.48rem 0.54rem;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(126, 155, 194, 0.10);
+        }
+        .mini-stat-label {
+            color: var(--text-muted);
+            font-size: 0.66rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+        .mini-stat-value {
+            color: var(--text);
+            font-size: 0.84rem;
+            font-weight: 700;
+            margin-top: 0.18rem;
+        }
+        .score-panel,
+        .market-overview,
+        .signal-grid,
+        .detail-grid {
+            margin-top: 0.78rem;
+        }
+        .score-panel {
+            border-radius: 18px;
+            padding: 0.8rem 0.88rem;
+            background: linear-gradient(135deg, rgba(21, 33, 50, 0.96) 0%, rgba(11, 20, 33, 0.98) 100%);
+            border: 1px solid rgba(126, 155, 194, 0.14);
+        }
+        .score-eyebrow {
+            color: var(--text-muted);
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+        .score-value {
+            color: var(--text);
+            font-family: "Space Grotesk", "Barlow", sans-serif;
+            font-size: 1.02rem;
+            font-weight: 700;
+            margin-top: 0.2rem;
+        }
+        .market-overview {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 0.55rem;
+        }
+        .market-overview-card,
+        .signal-card,
+        .detail-card,
+        .board-row-chip {
+            border-radius: 16px;
+            padding: 0.68rem 0.78rem;
+            background: linear-gradient(180deg, rgba(21, 33, 50, 0.96) 0%, rgba(11, 20, 33, 0.98) 100%);
+            border: 1px solid rgba(126, 155, 194, 0.14);
+        }
+        .market-overview-label,
+        .signal-card-label,
+        .detail-card-label,
+        .board-row-chip-label {
+            color: var(--text-muted);
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+        .market-overview-value,
+        .signal-card-title,
+        .detail-card-value,
+        .board-row-chip-value {
+            color: var(--text);
+            font-size: 0.92rem;
+            font-weight: 700;
+            margin-top: 0.18rem;
+        }
+        .market-overview-value.positive,
+        .detail-card-value.positive,
+        .board-row-chip-value.positive {
+            color: var(--positive);
+        }
+        .market-overview-value.negative,
+        .detail-card-value.negative,
+        .board-row-chip-value.negative {
+            color: var(--negative);
+        }
+        .signal-grid,
+        .detail-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.6rem;
+        }
+        .signal-card-title {
+            font-family: "Space Grotesk", "Barlow", sans-serif;
+            font-size: 0.98rem;
+        }
+        .signal-card-copy,
+        .detail-card-copy {
+            color: var(--text-muted);
+            font-size: 0.79rem;
+            line-height: 1.4;
+            margin-top: 0.24rem;
+        }
+        .signal-card.side {
+            border-color: rgba(54, 212, 140, 0.26);
+        }
+        .signal-card.total {
+            border-color: rgba(110, 203, 255, 0.26);
+        }
+        .market-detail {
+            margin-top: 0.8rem;
+            border-radius: 18px;
+            border: 1px solid rgba(126, 155, 194, 0.14);
+            background: rgba(8, 17, 31, 0.36);
+            overflow: hidden;
+        }
+        .market-detail summary {
+            list-style: none;
+            cursor: pointer;
+            padding: 0.82rem 0.9rem;
+            color: var(--text);
+            font-weight: 700;
+            background: rgba(255, 255, 255, 0.02);
+        }
+        .market-detail summary::-webkit-details-marker {
+            display: none;
+        }
+        .market-detail-content {
+            padding: 0 0.9rem 0.9rem;
+        }
+        .board-rows {
+            display: flex;
+            flex-direction: column;
+            gap: 0.7rem;
+        }
+        .board-row {
+            border-radius: 20px;
+            padding: 0.88rem 0.92rem;
+            background:
+                radial-gradient(circle at top left, rgba(119, 183, 255, 0.08), transparent 28%),
+                linear-gradient(180deg, rgba(18, 29, 45, 0.98) 0%, rgba(10, 20, 34, 0.98) 100%);
+            border: 1px solid var(--border);
+            box-shadow: 0 14px 34px rgba(0, 0, 0, 0.22);
+            transition: transform 160ms ease, border-color 160ms ease;
+        }
+        .board-row:hover {
+            transform: translateY(-1px);
+            border-color: rgba(119, 183, 255, 0.24);
+        }
+        .board-row-main {
+            display: grid;
+            grid-template-columns: minmax(250px, 1.5fr) minmax(140px, 0.8fr) minmax(250px, 1.1fr) minmax(220px, 0.9fr);
+            gap: 0.65rem;
+            align-items: center;
+        }
+        .board-row-game {
+            color: var(--text);
+            font-family: "Space Grotesk", "Barlow", sans-serif;
+            font-size: 1rem;
+            font-weight: 700;
+        }
+        .board-row-copy,
+        .board-row-meta {
+            color: var(--text-muted);
+            font-size: 0.78rem;
+            line-height: 1.4;
+        }
+        .board-row-prob {
+            color: var(--text);
+            font-size: 0.9rem;
+            font-weight: 700;
+        }
+        .board-row-prob span {
+            color: var(--text-muted);
+            font-size: 0.76rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin-right: 0.4rem;
+        }
+        .board-row-chip-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.5rem;
+        }
         .stDataFrame, div[data-testid="stDataEditor"] {
             border-radius: 18px;
             overflow: hidden;
@@ -1246,34 +1819,127 @@ def inject_app_styles():
             background-color: transparent;
         }
         .stButton > button, .stDownloadButton > button {
-            background: linear-gradient(180deg, #242934 0%, #1E232C 100%);
+            background: linear-gradient(180deg, #20314b 0%, #17253a 100%);
             color: var(--text);
-            border: 1px solid #3A404C;
-            border-radius: 12px;
-            font-weight: 600;
+            border: 1px solid rgba(126, 155, 194, 0.24);
+            border-radius: 14px;
+            font-family: "Space Grotesk", "Barlow", sans-serif;
+            font-weight: 700;
+            letter-spacing: 0.01em;
+            min-height: 2.8rem;
         }
         .stButton > button:hover, .stDownloadButton > button:hover {
-            border-color: var(--totals);
+            border-color: var(--accent);
             color: #FFFFFF;
-            box-shadow: 0 0 0 1px rgba(243, 156, 18, 0.18);
+            box-shadow: 0 0 0 1px rgba(119, 183, 255, 0.18);
+        }
+        button[kind="secondaryFormSubmit"] {
+            border-radius: 14px !important;
         }
         div[data-baseweb="input"] > div,
         div[data-baseweb="select"] > div,
         div[data-baseweb="base-input"] > div {
-            background-color: #1C1F26 !important;
-            border-color: #323844 !important;
+            background-color: rgba(18, 29, 45, 0.92) !important;
+            border-color: rgba(126, 155, 194, 0.20) !important;
+            border-radius: 14px !important;
         }
         div[data-baseweb="input"] input,
         div[data-baseweb="select"] input,
         div[data-baseweb="base-input"] input {
             color: var(--text) !important;
         }
+        div[role="listbox"] {
+            background: #122033 !important;
+            border: 1px solid rgba(126, 155, 194, 0.20) !important;
+        }
+        div[role="listbox"] * {
+            color: var(--text) !important;
+        }
+        [data-testid="stRadio"] [role="radiogroup"] {
+            gap: 0.45rem;
+            background: rgba(9, 18, 30, 0.65);
+            padding: 0.34rem;
+            border-radius: 16px;
+            border: 1px solid rgba(126, 155, 194, 0.16);
+        }
+        [data-testid="stRadio"] [role="radiogroup"] label {
+            min-height: 2.55rem;
+            border-radius: 12px !important;
+            background: transparent !important;
+            border: 1px solid transparent !important;
+            padding: 0.42rem 0.8rem !important;
+            transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
+        }
+        [data-testid="stRadio"] [role="radiogroup"] label:hover {
+            background: rgba(255, 255, 255, 0.04) !important;
+            border-color: rgba(126, 155, 194, 0.12) !important;
+        }
+        [data-testid="stRadio"] [role="radiogroup"] label:has(input:checked) {
+            background: linear-gradient(180deg, rgba(35, 55, 84, 0.98) 0%, rgba(20, 32, 50, 0.98) 100%) !important;
+            border-color: rgba(119, 183, 255, 0.26) !important;
+            box-shadow: inset 0 0 0 1px rgba(119, 183, 255, 0.06);
+        }
+        [data-testid="stRadio"] [role="radiogroup"] label p {
+            color: var(--text-muted) !important;
+            font-family: "Space Grotesk", "Barlow", sans-serif !important;
+            font-size: 0.84rem !important;
+            font-weight: 700 !important;
+        }
+        [data-testid="stRadio"] [role="radiogroup"] label:has(input:checked) p {
+            color: var(--text) !important;
+        }
+        [data-testid="stRadio"] label,
+        [data-testid="stSelectbox"] label,
+        [data-testid="stNumberInput"] label,
+        [data-testid="stTextInput"] label,
+        [data-testid="stDownloadButton"] label {
+            color: var(--text-muted) !important;
+            font-size: 0.75rem !important;
+            font-weight: 700 !important;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+        [data-testid="stTabs"] [data-baseweb="tab-list"] {
+            gap: 0.55rem;
+            background: transparent;
+        }
+        [data-testid="stTabs"] [data-baseweb="tab"] {
+            height: auto;
+            padding: 0.8rem 1rem;
+            border-radius: 16px;
+            background: rgba(18, 29, 45, 0.82);
+            border: 1px solid rgba(126, 155, 194, 0.14);
+            color: var(--text-muted);
+            font-family: "Space Grotesk", "Barlow", sans-serif;
+            font-weight: 700;
+        }
+        [data-testid="stTabs"] [aria-selected="true"] {
+            color: var(--text) !important;
+            background: linear-gradient(180deg, rgba(33, 50, 76, 0.98) 0%, rgba(18, 29, 45, 0.98) 100%) !important;
+            border-color: rgba(119, 183, 255, 0.30) !important;
+            box-shadow: inset 0 0 0 1px rgba(119, 183, 255, 0.06);
+        }
+        [data-testid="stExpander"] details {
+            border-radius: 18px;
+            border: 1px solid rgba(126, 155, 194, 0.14);
+            background: linear-gradient(180deg, rgba(18, 29, 45, 0.94) 0%, rgba(10, 20, 34, 0.96) 100%);
+            overflow: hidden;
+        }
+        [data-testid="stExpander"] summary {
+            padding: 0.95rem 1rem !important;
+            font-family: "Space Grotesk", "Barlow", sans-serif;
+            font-weight: 700 !important;
+            color: var(--text) !important;
+        }
+        [data-testid="stExpanderDetails"] {
+            padding-top: 0.2rem;
+        }
         [data-testid="stCaptionContainer"] {
             color: var(--text-muted) !important;
         }
         [data-testid="stAlert"] {
-            background: #1C1F26;
-            border: 1px solid var(--border);
+            background: #122033;
+            border: 1px solid rgba(126, 155, 194, 0.18);
         }
         [data-testid="stToolbar"] {
             visibility: hidden;
@@ -1282,10 +1948,26 @@ def inject_app_styles():
             .best-bets-grid,
             .bet-slip-grid,
             .market-strip,
+            .market-overview,
             .board-view-grid,
+            .summary-grid,
+            .matchup-teams-grid,
+            .recommendation-strip,
+            .signal-grid,
+            .detail-grid,
             .monitor-layout-grid,
             .global-status-grid {
                 grid-template-columns: 1fr;
+            }
+            .board-row-main,
+            .board-row-chip-grid {
+                grid-template-columns: 1fr;
+            }
+            .matchup-status-stack {
+                align-items: flex-start;
+            }
+            .matchup-header {
+                flex-direction: column;
             }
         }
         @media (max-width: 720px) {
@@ -1342,6 +2024,15 @@ def inject_app_styles():
             .board-status-badge {
                 margin-left: 0;
             }
+            .matchup-title {
+                font-size: 1.16rem;
+            }
+            .sportsbook-toolbar {
+                padding: 0.78rem 0.82rem;
+            }
+            .team-card-prob {
+                font-size: 1.2rem;
+            }
             .board-matchup {
                 font-size: 1.12rem;
                 line-height: 1.2;
@@ -1374,9 +2065,15 @@ def inject_app_styles():
             .bet-slip-card,
             .board-view-card,
             .market-cell,
+            .market-overview-card,
+            .signal-card,
+            .detail-card,
             .meta-pill,
             .team-profile-metric,
-            .monitor-note-card {
+            .monitor-note-card,
+            .team-card,
+            .summary-stat-card,
+            .board-row-chip {
                 padding: 0.72rem 0.78rem;
             }
             .score-ribbon-value,
@@ -1394,11 +2091,27 @@ def inject_app_styles():
             .probability-value,
             .market-value,
             .meta-value,
-            .team-profile-value {
+            .team-profile-value,
+            .mini-stat-value,
+            .market-overview-value,
+            .detail-card-value {
                 font-size: 0.84rem;
             }
             .card-section-divider {
                 margin-top: 0.65rem;
+            }
+            .matchup-card-inner,
+            .board-row {
+                padding: 0.78rem;
+            }
+            .matchup-board-grid {
+                grid-template-columns: 1fr;
+            }
+            .team-card-meta {
+                grid-template-columns: 1fr;
+            }
+            .active-filter-strip {
+                gap: 0.35rem;
             }
         }
         </style>
@@ -1780,6 +2493,68 @@ def format_moneyline(odds_value):
     if odds > 0:
         return f"+{odds}"
     return str(odds)
+
+
+def get_team_branding(team_name):
+    team_text = str(team_name).strip() if team_name is not None and not pd.isna(team_name) else ""
+    default = {"abbr": team_text[:3].upper() if team_text else "MLB", "primary": "#20314b", "secondary": "#77b7ff"}
+    return TEAM_BRANDING.get(team_text, default)
+
+
+def get_team_logo_src(team_name):
+    team_text = str(team_name).strip() if team_name is not None and not pd.isna(team_name) else ""
+    slug = TEAM_LOGO_SLUGS.get(team_text)
+    if slug:
+        assets_dir = os.path.join(CURRENT_DIR, "assets", "team_logos")
+        for ext in ["svg", "png", "webp", "jpg", "jpeg"]:
+            candidate = os.path.join(assets_dir, f"{slug}.{ext}")
+            if os.path.exists(candidate):
+                return candidate
+    return build_team_logo_data_uri(team_text)
+
+
+def build_team_logo_data_uri(team_name):
+    branding = get_team_branding(team_name)
+    abbr = escape(branding["abbr"])
+    primary = branding["primary"]
+    secondary = branding["secondary"]
+    svg = f"""
+    <svg xmlns="http://www.w3.org/2000/svg" width="72" height="72" viewBox="0 0 72 72">
+      <defs>
+        <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="{primary}" />
+          <stop offset="100%" stop-color="{secondary}" />
+        </linearGradient>
+      </defs>
+      <rect x="4" y="4" width="64" height="64" rx="18" fill="url(#g)" />
+      <rect x="7" y="7" width="58" height="58" rx="15" fill="none" stroke="rgba(255,255,255,0.20)" stroke-width="1.5" />
+      <circle cx="36" cy="36" r="24" fill="rgba(6,12,22,0.18)" />
+      <text x="36" y="42" text-anchor="middle" font-family="Space Grotesk, Arial, sans-serif" font-size="22" font-weight="800" letter-spacing="1.5" fill="#F9FBFF">{abbr}</text>
+    </svg>
+    """.strip()
+    return f"data:image/svg+xml;utf8,{quote(svg)}"
+
+
+def build_team_logo_html(team_name):
+    team_text = format_display_text(team_name)
+    logo_src = get_team_logo_src(team_name)
+    return (
+        f'<div class="team-logo"><img src="{logo_src}" alt="{team_text} logo" /></div>'
+        f'<div class="team-logo-name">{team_text}</div>'
+    )
+
+
+def format_display_text(value, fallback="N/A"):
+    if value is None or pd.isna(value):
+        return fallback
+    text = str(value).strip()
+    return escape(text) if text else fallback
+
+
+def format_signed_pct(value):
+    if value is None or pd.isna(value):
+        return "N/A"
+    return f"{float(value):+.1f}%"
 
 
 def american_odds_profit(odds_value):
@@ -2406,6 +3181,35 @@ def format_probability_display(probability_value):
     return f"{float(probability_value):.1f}%"
 
 
+def build_side_edge_summary(row):
+    away_edge_value = row.get("Away Edge %")
+    home_edge_value = row.get("Home Edge %")
+    away_ev_value = row.get("Away EV")
+    home_ev_value = row.get("Home EV")
+    best_side_label = row.get("Best Bet")
+
+    if best_side_label == row.get("Away") and pd.notna(away_edge_value) and pd.notna(away_ev_value):
+        return f"{row.get('Away')} {float(away_edge_value):+.1f}% edge | {float(away_ev_value):+.1f}% EV"
+    if best_side_label == row.get("Home") and pd.notna(home_edge_value) and pd.notna(home_ev_value):
+        return f"{row.get('Home')} {float(home_edge_value):+.1f}% edge | {float(home_ev_value):+.1f}% EV"
+    if best_side_label in {None, "Pass"} or pd.isna(best_side_label):
+        return "No playable side edge"
+
+    edge_candidates = []
+    if pd.notna(away_edge_value):
+        edge_candidates.append((row.get("Away"), float(away_edge_value), away_ev_value))
+    if pd.notna(home_edge_value):
+        edge_candidates.append((row.get("Home"), float(home_edge_value), home_ev_value))
+
+    if not edge_candidates:
+        return EDGE_PLACEHOLDER
+
+    team_name, edge_value, ev_value = max(edge_candidates, key=lambda item: item[1])
+    if ev_value is None or pd.isna(ev_value):
+        return f"{team_name} {edge_value:+.1f}% edge"
+    return f"{team_name} {edge_value:+.1f}% edge | {float(ev_value):+.1f}% EV"
+
+
 def get_market_probability_pct(row, side_prefix):
     """
     Return the market win probability for a side as a percentage.
@@ -2910,6 +3714,16 @@ def render_board_view_controls(display_df):
         '<div class="section-subtitle">Filter, sort, and switch views so the slate reads like a decision board instead of a raw schedule.</div>',
         unsafe_allow_html=True,
     )
+    st.markdown(
+        """
+        <div class="sportsbook-toolbar">
+            <div class="sportsbook-toolbar-kicker">Sportsbook Control Bar</div>
+            <div class="sportsbook-toolbar-title">Shape the board like a betting screen</div>
+            <div class="sportsbook-toolbar-copy">Dial in signal strength, angle type, sportsbook, and view mode before scanning the slate.</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     left_col, right_col = st.columns([1.2, 0.8])
     with left_col:
@@ -3079,6 +3893,21 @@ def render_board_view_controls(display_df):
 
     filtered_count = len(filtered_df)
     source_count = len(display_df)
+    active_filter_pills = [
+        ("Games", f"{filtered_count} / {source_count}"),
+        ("Signal", signal_filter),
+        ("Angle", angle_filter),
+        ("Side", side_value_filter),
+        ("Total", total_value_filter),
+        ("Book", sportsbook_filter if sportsbook_filter != "All Sportsbooks" else "Market Wide"),
+        ("View", view_mode),
+        ("Sort", sort_option),
+    ]
+    active_filter_html = "".join(
+        f'<span class="active-filter-pill"><span class="active-filter-label">{escape(label)}</span><span class="active-filter-value">{escape(value)}</span></span>'
+        for label, value in active_filter_pills
+    )
+    st.markdown(f'<div class="active-filter-strip">{active_filter_html}</div>', unsafe_allow_html=True)
     st.caption(
         f"Showing {filtered_count} of {source_count} games | Signal: {signal_filter} | Angle: {angle_filter} | Side: {side_value_filter} | Total: {total_value_filter} | Sort: {sort_option}"
     )
@@ -3143,49 +3972,288 @@ def render_board_empty_state(source_df, filtered_df):
     st.markdown('</div>', unsafe_allow_html=True)
 
 
+def build_compact_matchup_row_html(row):
+    away_team = format_display_text(row.get("Away"))
+    home_team = format_display_text(row.get("Home"))
+    away_pitcher = format_display_text(row.get("Away Pitcher"))
+    home_pitcher = format_display_text(row.get("Home Pitcher"))
+    sportsbook_name = format_display_text(row.get("Sportsbook"))
+    best_side_label = format_display_text(row.get("Best Bet"), "Pass")
+    best_total_label = format_display_text(row.get("Best Total Bet"), "Pass")
+    total_line = f"{float(row['Total Line']):.1f}" if pd.notna(row.get("Total Line")) else "N/A"
+    projected_total = f"{float(row['Projected Total']):.2f}" if pd.notna(row.get("Projected Total")) else "N/A"
+
+    side_edge_value = max(
+        [float(value) for value in [row.get("Away Edge %"), row.get("Home Edge %")] if value is not None and not pd.isna(value)],
+        default=None,
+    )
+    total_edge_value = max(
+        [float(value) for value in [row.get("Over Edge %"), row.get("Under Edge %")] if value is not None and not pd.isna(value)],
+        default=None,
+    )
+    side_edge_class = get_edge_tone(side_edge_value)
+    total_edge_class = get_edge_tone(total_edge_value)
+    total_diff_display = f"{float(row['Total Diff']):+.2f}" if pd.notna(row.get("Total Diff")) else "N/A"
+    away_brand = build_team_logo_html(row.get("Away"))
+    home_brand = build_team_logo_html(row.get("Home"))
+
+    return dedent(
+        f"""
+        <div class="board-row">
+            <div class="board-row-main">
+                <div>
+                    <div class="team-row-brand">{away_brand}</div>
+                    <div class="team-row-brand">{home_brand}</div>
+                    <div class="board-row-game">{away_team} at {home_team}</div>
+                    <div class="board-row-copy">{away_pitcher} vs {home_pitcher}</div>
+                    <div class="board-row-meta">{sportsbook_name}</div>
+                </div>
+                <div>
+                    <div class="board-row-prob"><span>Away</span>{float(row['Away Win']):.1f}%</div>
+                    <div class="board-row-prob"><span>Home</span>{float(row['Home Win']):.1f}%</div>
+                </div>
+                <div class="board-row-chip-grid">
+                    <div class="board-row-chip">
+                        <div class="board-row-chip-label">Best Side</div>
+                        <div class="board-row-chip-value">{best_side_label}</div>
+                        <div class="board-row-copy">Flag: {format_display_text(row.get("Bet Flag"), "Pass")}</div>
+                    </div>
+                    <div class="board-row-chip">
+                        <div class="board-row-chip-label">Best Total</div>
+                        <div class="board-row-chip-value">{best_total_label}</div>
+                        <div class="board-row-copy">Market {total_line} | Model {projected_total}</div>
+                    </div>
+                </div>
+                <div class="board-row-chip-grid">
+                    <div class="board-row-chip">
+                        <div class="board-row-chip-label">Side Edge</div>
+                        <div class="board-row-chip-value {side_edge_class}">{format_signed_pct(side_edge_value)}</div>
+                        <div class="board-row-copy">Favorite: {format_display_text(row.get("Favorite"))}</div>
+                    </div>
+                    <div class="board-row-chip">
+                        <div class="board-row-chip-label">Total Edge</div>
+                        <div class="board-row-chip-value {total_edge_class}">{format_signed_pct(total_edge_value)}</div>
+                        <div class="board-row-copy">Diff {total_diff_display}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        """
+    ).strip()
+
+
+def build_full_matchup_card_html(row):
+    away_team = format_display_text(row.get("Away"))
+    home_team = format_display_text(row.get("Home"))
+    away_pitcher = format_display_text(row.get("Away Pitcher"))
+    home_pitcher = format_display_text(row.get("Home Pitcher"))
+    sportsbook_name = format_display_text(row.get("Sportsbook"))
+
+    away_model_prob = float(row.get("Away Win", 0.0))
+    home_model_prob = float(row.get("Home Win", 0.0))
+    away_market_prob = get_market_probability_pct(row, "Away")
+    home_market_prob = get_market_probability_pct(row, "Home")
+    away_moneyline = format_moneyline(row.get("Away Moneyline"))
+    home_moneyline = format_moneyline(row.get("Home Moneyline"))
+    away_fair_moneyline = format_moneyline(get_model_fair_moneyline(away_model_prob))
+    home_fair_moneyline = format_moneyline(get_model_fair_moneyline(home_model_prob))
+    away_edge_value = row.get("Away Edge %")
+    home_edge_value = row.get("Home Edge %")
+    total_edge_label, total_edge_value = build_total_edge_summary(row)
+    total_line = f"{float(row['Total Line']):.1f}" if pd.notna(row.get("Total Line")) else "N/A"
+    projected_total = f"{float(row['Projected Total']):.2f}" if pd.notna(row.get("Projected Total")) else "N/A"
+    total_diff = f"{float(row['Total Diff']):+.2f}" if pd.notna(row.get("Total Diff")) else "N/A"
+
+    side_edge_candidates = [float(value) for value in [away_edge_value, home_edge_value] if value is not None and not pd.isna(value)]
+    total_edge_candidates = [float(value) for value in [row.get("Over Edge %"), row.get("Under Edge %")] if value is not None and not pd.isna(value)]
+    best_side_edge = max(side_edge_candidates) if side_edge_candidates else None
+    best_total_edge = max(total_edge_candidates) if total_edge_candidates else None
+    card_signal = get_card_signal_style(row, best_side_edge=best_side_edge, total_edge_value=total_edge_value)
+
+    card_class = card_signal["stripe"]
+    best_side_ev = max(
+        [float(value) for value in [row.get("Away EV"), row.get("Home EV")] if value is not None and not pd.isna(value)],
+        default=None,
+    )
+    best_total_ev = max(
+        [float(value) for value in [row.get("Over EV"), row.get("Under EV")] if value is not None and not pd.isna(value)],
+        default=None,
+    )
+    favorite_team = row["Favorite"] if pd.notna(row.get("Favorite")) else home_team
+
+    best_side_label = format_display_text(row.get("Best Bet"), "Pass")
+    best_total_label = format_display_text(row.get("Best Total Bet"), "Pass")
+    favorite_text = format_display_text(favorite_team)
+    away_brand = build_team_logo_html(row.get("Away"))
+    home_brand = build_team_logo_html(row.get("Home"))
+
+    away_card_class = "favorite" if favorite_text == away_team else ""
+    home_card_class = "favorite" if favorite_text == home_team else ""
+    away_prob_class = "positive" if favorite_text == away_team else "neutral"
+    home_prob_class = "positive" if favorite_text == home_team else "neutral"
+
+    score_text = f"{away_team} {float(row['Away Runs']):.2f} - {home_team} {float(row['Home Runs']):.2f}"
+    side_summary = build_side_edge_summary(row)
+    total_summary = f"{format_display_text(total_edge_label)} {format_signed_pct(total_edge_value)}"
+    hold_display = f"{float(row['Hold %']):.1f}%" if pd.notna(row.get("Hold %")) else "N/A"
+    consensus_books = str(int(row["Consensus Books Used"])) if pd.notna(row.get("Consensus Books Used")) else "N/A"
+    consensus_probs = " / ".join(
+        [
+            format_probability_display(row.get("Away Consensus %")),
+            format_probability_display(row.get("Home Consensus %")),
+        ]
+    )
+
+    return dedent(
+        f"""
+        <div class="matchup-card {card_class}">
+            <div class="matchup-card-inner">
+                <div class="matchup-header">
+                    <div>
+                        <div class="matchup-kicker">Matchup Board</div>
+                        <div class="matchup-title">{away_team} at {home_team}</div>
+                        <div class="matchup-copy">{away_pitcher} vs {home_pitcher}</div>
+                    </div>
+                    <div class="matchup-status-stack">
+                        <div class="board-status-badge {card_signal['badge_class']}">{escape(card_signal['badge_text'])}</div>
+                        <div class="board-status-meta">{sportsbook_name}</div>
+                    </div>
+                </div>
+
+                <div class="board-status-row">
+                    {format_signal_badge(row.get("Bet Flag"), best_side_ev)}
+                    {format_signal_badge(row.get("Total Bet Flag"), best_total_ev)}
+                    {format_side_angle_badge(row.get("Best Bet"), favorite_team)}
+                    {format_total_angle_badge(row.get("Best Total Bet"))}
+                </div>
+
+                <div class="recommendation-strip">
+                    <div class="recommendation-card side">
+                        <div class="recommendation-label">Primary Side</div>
+                        <div class="recommendation-pick">{best_side_label}</div>
+                        <div class="recommendation-copy">{escape(side_summary)}</div>
+                    </div>
+                    <div class="recommendation-card total">
+                        <div class="recommendation-label">Primary Total</div>
+                        <div class="recommendation-pick">{best_total_label}</div>
+                        <div class="recommendation-copy">{escape(total_summary)} | Market {total_line} | Model {projected_total}</div>
+                    </div>
+                </div>
+
+                <div class="matchup-teams-grid">
+                    <div class="team-card {away_card_class}">
+                        <div class="team-card-label">Away Side</div>
+                        <div class="team-card-brand">{away_brand}</div>
+                        <div class="team-card-prob {away_prob_class}">{away_model_prob:.1f}%</div>
+                        <div class="team-card-meta">
+                            <div class="mini-stat">
+                                <div class="mini-stat-label">Market</div>
+                                <div class="mini-stat-value">{format_probability_display(away_market_prob)}</div>
+                            </div>
+                            <div class="mini-stat">
+                                <div class="mini-stat-label">Moneyline</div>
+                                <div class="mini-stat-value">{away_moneyline}</div>
+                            </div>
+                            <div class="mini-stat">
+                                <div class="mini-stat-label">Fair</div>
+                                <div class="mini-stat-value">{away_fair_moneyline}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="team-card {home_card_class}">
+                        <div class="team-card-label">Home Side</div>
+                        <div class="team-card-brand">{home_brand}</div>
+                        <div class="team-card-prob {home_prob_class}">{home_model_prob:.1f}%</div>
+                        <div class="team-card-meta">
+                            <div class="mini-stat">
+                                <div class="mini-stat-label">Market</div>
+                                <div class="mini-stat-value">{format_probability_display(home_market_prob)}</div>
+                            </div>
+                            <div class="mini-stat">
+                                <div class="mini-stat-label">Moneyline</div>
+                                <div class="mini-stat-value">{home_moneyline}</div>
+                            </div>
+                            <div class="mini-stat">
+                                <div class="mini-stat-label">Fair</div>
+                                <div class="mini-stat-value">{home_fair_moneyline}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="score-panel">
+                    <div class="score-eyebrow">Projected Score</div>
+                    <div class="score-value">{score_text}</div>
+                </div>
+
+                <div class="market-overview">
+                    <div class="market-overview-card">
+                        <div class="market-overview-label">Favorite</div>
+                        <div class="market-overview-value">{favorite_text}</div>
+                    </div>
+                    <div class="market-overview-card">
+                        <div class="market-overview-label">Side Edge</div>
+                        <div class="market-overview-value {get_edge_tone(best_side_edge)}">{format_signed_pct(best_side_edge)}</div>
+                    </div>
+                    <div class="market-overview-card">
+                        <div class="market-overview-label">Total Edge</div>
+                        <div class="market-overview-value {get_edge_tone(best_total_edge)}">{format_signed_pct(best_total_edge)}</div>
+                    </div>
+                    <div class="market-overview-card">
+                        <div class="market-overview-label">Hold</div>
+                        <div class="market-overview-value">{hold_display}</div>
+                    </div>
+                </div>
+
+                <details class="market-detail">
+                    <summary>Market detail</summary>
+                    <div class="market-detail-content">
+                        <div class="detail-grid">
+                            <div class="detail-card">
+                                <div class="detail-card-label">Away Edge</div>
+                                <div class="detail-card-value {get_edge_tone(away_edge_value)}">{format_signed_pct(away_edge_value)}</div>
+                                <div class="detail-card-copy">{away_team} market {format_probability_display(away_market_prob)} vs model {away_model_prob:.1f}%</div>
+                            </div>
+                            <div class="detail-card">
+                                <div class="detail-card-label">Home Edge</div>
+                                <div class="detail-card-value {get_edge_tone(home_edge_value)}">{format_signed_pct(home_edge_value)}</div>
+                                <div class="detail-card-copy">{home_team} market {format_probability_display(home_market_prob)} vs model {home_model_prob:.1f}%</div>
+                            </div>
+                            <div class="detail-card">
+                                <div class="detail-card-label">Consensus</div>
+                                <div class="detail-card-value">{consensus_probs}</div>
+                                <div class="detail-card-copy">{consensus_books} books contributing to the consensus view.</div>
+                            </div>
+                            <div class="detail-card">
+                                <div class="detail-card-label">Total Difference</div>
+                                <div class="detail-card-value {get_edge_tone(total_edge_value)}">{total_diff}</div>
+                                <div class="detail-card-copy">Model total {projected_total} vs market {total_line}.</div>
+                            </div>
+                        </div>
+                    </div>
+                </details>
+            </div>
+        </div>
+        """
+    ).strip()
+
+
 def render_matchup_table(display_df):
     st.markdown('<div class="section-panel">', unsafe_allow_html=True)
-    st.markdown('<div class="section-label">Matchup Board</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-label">Board Rows</div>', unsafe_allow_html=True)
     st.markdown(
-        '<div class="section-subtitle">Compact comparison view for scanning the whole slate side by side.</div>',
+        '<div class="section-subtitle">Compact sportsbook tape built from custom row cards, not a default table.</div>',
         unsafe_allow_html=True,
     )
     if display_df.empty:
         st.info("No games loaded for the current board.")
         st.markdown('</div>', unsafe_allow_html=True)
         return
-
-    compact_df = display_df[
-        [
-            "Away",
-            "Home",
-            "Favorite",
-            "Away Win",
-            "Home Win",
-            "Best Bet",
-            "Bet Flag",
-            "Away Edge %",
-            "Home Edge %",
-            "Best Total Bet",
-            "Total Bet Flag",
-            "Projected Total",
-            "Total Diff",
-            "Sportsbook",
-        ]
-    ].copy()
-    st.dataframe(
-        compact_df,
-        hide_index=True,
-        use_container_width=True,
-        column_config={
-            "Away Win": st.column_config.NumberColumn("Away Win", format="%.1f%%"),
-            "Home Win": st.column_config.NumberColumn("Home Win", format="%.1f%%"),
-            "Away Edge %": st.column_config.NumberColumn("Away Edge", format="%.1f%%"),
-            "Home Edge %": st.column_config.NumberColumn("Home Edge", format="%.1f%%"),
-            "Projected Total": st.column_config.NumberColumn("Proj Total", format="%.2f"),
-            "Total Diff": st.column_config.NumberColumn("Total Diff", format="%.2f"),
-        },
-    )
+    rows_html = ['<div class="board-rows">']
+    for _, row in display_df.iterrows():
+        rows_html.append(build_compact_matchup_row_html(row))
+    rows_html.append("</div>")
+    st.markdown("".join(rows_html), unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
 
@@ -3224,16 +4292,47 @@ def render_controls_panel():
 def render_summary_metrics(display_df):
     st.markdown('<div class="sticky-summary-shell"><div class="section-panel">', unsafe_allow_html=True)
     summary = build_summary_metrics(display_df)
-    metric_row_1_col_1, metric_row_1_col_2 = st.columns(2)
-    with metric_row_1_col_1:
-        st.metric("Games Today", summary["games_today"])
-    with metric_row_1_col_2:
-        st.metric("Strongest EV", summary["strongest_ev"], summary["strongest_ev_delta"])
-    metric_row_2_col_1, metric_row_2_col_2 = st.columns(2)
-    with metric_row_2_col_1:
-        st.metric("Playable Side Bets", summary["playable_bets"])
-    with metric_row_2_col_2:
-        st.metric("Playable Total Bets", summary["playable_total_bets"])
+    summary_cards = [
+        {
+            "label": "Games Today",
+            "value": summary["games_today"],
+            "context": "Active matchups on the loaded slate.",
+            "accent": "",
+        },
+        {
+            "label": "Strongest EV",
+            "value": summary["strongest_ev"],
+            "context": f"Delta {summary['strongest_ev_delta']}",
+            "accent": "accent-positive",
+        },
+        {
+            "label": "Playable Sides",
+            "value": summary["playable_bets"],
+            "context": "Sides flagged as lean or stronger.",
+            "accent": "accent-warning",
+        },
+        {
+            "label": "Playable Totals",
+            "value": summary["playable_total_bets"],
+            "context": "Totals with a current edge to review.",
+            "accent": "accent-total",
+        },
+    ]
+    cards_html = ['<div class="summary-grid">']
+    for card in summary_cards:
+        cards_html.append(
+            dedent(
+                f"""
+                <div class="summary-stat-card {card['accent']}">
+                    <div class="summary-stat-label">{escape(str(card['label']))}</div>
+                    <div class="summary-stat-value">{escape(str(card['value']))}</div>
+                    <div class="summary-stat-context">{escape(str(card['context']))}</div>
+                </div>
+                """
+            ).strip()
+        )
+    cards_html.append("</div>")
+    st.markdown("".join(cards_html), unsafe_allow_html=True)
     st.markdown('</div></div>', unsafe_allow_html=True)
 
 
@@ -3378,11 +4477,11 @@ def render_action_bar(download_csv, display_df, top_plays_df, run_dispersion):
 
     action_row_1_col_1, action_row_1_col_2, action_row_1_col_3 = st.columns(3)
     with action_row_1_col_1:
-        if st.button("Refresh Board", use_container_width=True):
+        if st.button("Refresh Board", width="stretch"):
             reload_automated_inputs(force_refresh=True)
             st.rerun()
     with action_row_1_col_2:
-        if st.button("Refresh Simulations", use_container_width=True):
+        if st.button("Refresh Simulations", width="stretch"):
             st.cache_data.clear()
             set_board_timestamp("simulation_last_updated")
             st.session_state["simulation_cache_status"] = (
@@ -3391,7 +4490,7 @@ def render_action_bar(download_csv, display_df, top_plays_df, run_dispersion):
             )
             st.rerun()
     with action_row_1_col_3:
-        if st.button("Load Live Odds", use_container_width=True):
+        if st.button("Load Live Odds", width="stretch"):
             try:
                 odds_map = fetch_live_odds()
                 updated_board, matched_games = apply_live_odds_to_board(
@@ -3418,7 +4517,7 @@ def render_action_bar(download_csv, display_df, top_plays_df, run_dispersion):
 
     action_row_2_col_1, action_row_2_col_2 = st.columns(2)
     with action_row_2_col_1:
-        if st.button("Save Board Snapshot", use_container_width=True):
+        if st.button("Save Board Snapshot", width="stretch"):
             try:
                 board_snapshot_path = save_board_snapshot(display_df, run_dispersion)
                 top_plays_snapshot_path = save_top_plays_snapshot(top_plays_df, run_dispersion)
@@ -3435,7 +4534,7 @@ def render_action_bar(download_csv, display_df, top_plays_df, run_dispersion):
             data=download_csv,
             file_name="daily_matchup_simulations.csv",
             mime="text/csv",
-            use_container_width=True,
+            width="stretch",
         )
 
     st.markdown("</div>", unsafe_allow_html=True)
@@ -3487,237 +4586,11 @@ def render_matchup_cards(display_df):
         st.info("No games loaded for the current board.")
         st.markdown('</div>', unsafe_allow_html=True)
         return
-
-    preview_columns = st.columns(2)
-
-    for idx, (_, row) in enumerate(display_df.iterrows()):
-        favorite_is_home = row["Favorite"] == row["Home"]
-        favorite_team = row["Home"] if favorite_is_home else row["Away"]
-        favorite_prob = row["Home Win"] if favorite_is_home else row["Away Win"]
-
-        side_ev_candidates = [
-            value for value in [row.get("Away EV"), row.get("Home EV")]
-            if value is not None and not pd.isna(value)
-        ]
-        best_side_ev = max(side_ev_candidates) if side_ev_candidates else None
-        tone = get_signal_tone(row.get("Bet Flag"), best_side_ev)
-        card_class = f"board-card {tone}-side"
-        if row["Win Edge"] >= 8:
-            card_class += " favorite-card"
-
-        away_moneyline = format_moneyline(row.get("Away Moneyline"))
-        home_moneyline = format_moneyline(row.get("Home Moneyline"))
-        sportsbook_name = row.get("Sportsbook") if pd.notna(row.get("Sportsbook")) else "N/A"
-        away_market_prob = get_market_probability_pct(row, "Away")
-        home_market_prob = get_market_probability_pct(row, "Home")
-        away_fair_moneyline = format_moneyline(get_model_fair_moneyline(row.get("Away Win")))
-        home_fair_moneyline = format_moneyline(get_model_fair_moneyline(row.get("Home Win")))
-        away_edge_value = row.get("Away Edge %")
-        home_edge_value = row.get("Home Edge %")
-        total_edge_label, total_edge_value = build_total_edge_summary(row)
-        side_edge_candidates = [
-            value for value in [away_edge_value, home_edge_value]
-            if value is not None and not pd.isna(value)
-        ]
-        best_side_edge = max(side_edge_candidates) if side_edge_candidates else None
-        card_signal = get_card_signal_style(row, best_side_edge=best_side_edge, total_edge_value=total_edge_value)
-
-        away_consensus_value = row.get("Away Consensus %")
-        home_consensus_value = row.get("Home Consensus %")
-        if pd.notna(away_consensus_value) and pd.notna(home_consensus_value):
-            consensus_probability_label = f"{float(away_consensus_value):.1f}% / {float(home_consensus_value):.1f}%"
-        else:
-            consensus_probability_label = "N/A"
-
-        best_side_label = row["Best Bet"] if row["Best Bet"] != "Pass" else "Pass"
-        best_total_bet_label = row["Best Total Bet"] if row["Best Total Bet"] != "Pass" else "Pass"
-
-        away_ev_value = row.get("Away EV")
-        home_ev_value = row.get("Home EV")
-        over_edge_value = row.get("Over Edge %")
-        under_edge_value = row.get("Under Edge %")
-        over_ev_value = row.get("Over EV")
-        under_ev_value = row.get("Under EV")
-        total_diff_value = row.get("Total Diff")
-
-        if best_side_label == row["Away"]:
-            if pd.notna(away_edge_value) and pd.notna(away_ev_value):
-                best_side_summary = f"Away {float(away_edge_value):.1f}% edge | {float(away_ev_value):.1f}% EV"
-            else:
-                best_side_summary = "N/A"
-        elif best_side_label == row["Home"]:
-            if pd.notna(home_edge_value) and pd.notna(home_ev_value):
-                best_side_summary = f"Home {float(home_edge_value):.1f}% edge | {float(home_ev_value):.1f}% EV"
-            else:
-                best_side_summary = "N/A"
-        else:
-            best_side_summary = "No playable edge"
-
-        if best_total_bet_label == "Over":
-            if pd.notna(over_edge_value) and pd.notna(over_ev_value):
-                total_bet_summary = f"Over {float(over_edge_value):.1f}% edge | {float(over_ev_value):.1f}% EV"
-            else:
-                total_bet_summary = "N/A"
-        elif best_total_bet_label == "Under":
-            if pd.notna(under_edge_value) and pd.notna(under_ev_value):
-                total_bet_summary = f"Under {float(under_edge_value):.1f}% edge | {float(under_ev_value):.1f}% EV"
-            else:
-                total_bet_summary = "N/A"
-        else:
-            total_bet_summary = "No playable total"
-
-        side_badges = render_badge_row(
-            primary_badge=format_signal_badge(row["Bet Flag"], best_side_ev),
-            bet_type_badge="Best Bet",
-            favorite_badge=f"Favorite: {favorite_team} {favorite_prob:.1f}%",
-        )
-        side_angle_badge = format_side_angle_badge(best_side_label, favorite_team)
-        total_angle_badge = format_total_angle_badge(best_total_bet_label)
-
-        total_ev_candidates = [
-            value for value in [row.get("Over EV"), row.get("Under EV")]
-            if value is not None and not pd.isna(value)
-        ]
-        best_total_ev = max(total_ev_candidates) if total_ev_candidates else None
-
-        total_badges = render_badge_row(
-            primary_badge=format_signal_badge(row["Total Bet Flag"], best_total_ev),
-            bet_type_badge="Best Total",
-        )
-
-        with preview_columns[idx % 2]:
-            with st.container(border=True):
-                st.markdown(
-                    dedent(
-                        f"""
-                        <div class="board-card-shell">
-                            <div class="board-card-stripe {card_signal['stripe']}"></div>
-                            <div class="{card_class}">
-                                <div class="board-topline">
-                                    <div>
-                                        <div class="board-matchup">{row["Away"]} at {row["Home"]}</div>
-                                        <div class="board-subtle">{row["Away Pitcher"]} vs {row["Home Pitcher"]}</div>
-                                    </div>
-                                    <div class="board-status-badge {card_signal['badge_class']}">{card_signal['badge_text']}</div>
-                                </div>
-                                <div class="board-status-row">
-                                    <span class="board-status-meta">{sportsbook_name}</span>
-                                    {side_angle_badge}
-                                    {total_angle_badge}
-                                </div>
-                            </div>
-                        </div>
-                        """
-                    ).strip(),
-                    unsafe_allow_html=True,
-                )
-                st.markdown(
-                    dedent(
-                        f"""
-                        <div class="score-ribbon">
-                            <div class="score-ribbon-label">Projected Score</div>
-                            <div class="score-ribbon-value">{row["Away"]} {row["Away Runs"]:.2f} - {row["Home"]} {row["Home Runs"]:.2f}</div>
-                        </div>
-                        """
-                    ).strip(),
-                    unsafe_allow_html=True,
-                )
-
-                st.markdown(
-                    dedent(
-                        f"""
-                        <div class="bet-slip-grid">
-                            <div class="bet-slip-card side">
-                                <div class="bet-slip-label">Best Side Bet</div>
-                                <div class="bet-slip-pick">{best_side_label}</div>
-                                {side_badges}
-                                <div class="bet-slip-summary">{best_side_summary}</div>
-                            </div>
-                            <div class="bet-slip-card total">
-                                <div class="bet-slip-label">Best Total Bet</div>
-                                <div class="bet-slip-pick">{best_total_bet_label}</div>
-                                {total_badges}
-                                <div class="bet-slip-summary">{total_bet_summary}</div>
-                            </div>
-                        </div>
-                        """
-                    ).strip(),
-                    unsafe_allow_html=True,
-                )
-
-                st.markdown('<div class="card-section-divider"></div>', unsafe_allow_html=True)
-                st.markdown('<div class="card-section-label">Model Probabilities</div>', unsafe_allow_html=True)
-                away_win_prob = float(row.get("Away Win", 0.0))
-                home_win_prob = float(row.get("Home Win", 0.0))
-                away_bar_class = "favorite" if favorite_team == row["Away"] else "underdog"
-                home_bar_class = "favorite" if favorite_team == row["Home"] else "underdog"
-                st.markdown(
-                    dedent(
-                        f"""
-                        <div class="probability-line">
-                            <div class="probability-team">{row["Away"]}</div>
-                            <div class="probability-value">{away_win_prob:.1f}%</div>
-                            <div class="probability-bar-track">
-                                <div class="probability-bar-fill {away_bar_class}" style="width: {away_win_prob}%;"></div>
-                            </div>
-                        </div>
-                        <div class="probability-line">
-                            <div class="probability-team">{row["Home"]}</div>
-                            <div class="probability-value">{home_win_prob:.1f}%</div>
-                            <div class="probability-bar-track">
-                                <div class="probability-bar-fill {home_bar_class}" style="width: {home_win_prob}%;"></div>
-                            </div>
-                        </div>
-                        """
-                    ).strip(),
-                    unsafe_allow_html=True,
-                )
-
-                st.markdown('<div class="card-section-divider"></div>', unsafe_allow_html=True)
-                st.markdown('<div class="card-section-label">Totals</div>', unsafe_allow_html=True)
-                total_col_1, total_col_2, total_col_3 = st.columns(3)
-                with total_col_1:
-                    st.metric("Projected Total", f"{float(row['Projected Total']):.2f}")
-                with total_col_2:
-                    market_total_display = (
-                        f"{float(row['Total Line']):.1f}" if pd.notna(row.get("Total Line")) else "N/A"
-                    )
-                    st.metric("Market Total", market_total_display)
-                with total_col_3:
-                    total_edge_display = (
-                        f"{total_edge_label} {float(total_edge_value):+.1f}%"
-                        if total_edge_value is not None and not pd.isna(total_edge_value)
-                        else "N/A"
-                    )
-                    st.metric("Total Edge", total_edge_display)
-                    st.markdown(format_edge_badge(total_edge_label, total_edge_value), unsafe_allow_html=True)
-
-                with st.expander("Market detail", expanded=False):
-                    st.markdown('<div class="card-section-label">Sides Market</div>', unsafe_allow_html=True)
-                    market_col_1, market_col_2 = st.columns(2)
-                    with market_col_1:
-                        st.metric("Market ML", away_moneyline)
-                        st.metric("Market Win", format_probability_display(away_market_prob))
-                        st.metric("Fair ML", away_fair_moneyline)
-                        st.markdown(format_edge_badge(f"{row['Away']} Edge", away_edge_value), unsafe_allow_html=True)
-                    with market_col_2:
-                        st.metric("Market ML", home_moneyline)
-                        st.metric("Market Win", format_probability_display(home_market_prob))
-                        st.metric("Fair ML", home_fair_moneyline)
-                        st.markdown(format_edge_badge(f"{row['Home']} Edge", home_edge_value), unsafe_allow_html=True)
-
-                    detail_col_1, detail_col_2, detail_col_3 = st.columns(3)
-                    with detail_col_1:
-                        st.caption("Consensus Win Probabilities")
-                        st.write(consensus_probability_label)
-                    with detail_col_2:
-                        hold_display = f"{float(row['Hold %']):.1f}%" if pd.notna(row.get("Hold %")) else "N/A"
-                        st.caption("Market Hold")
-                        st.write(hold_display)
-                    with detail_col_3:
-                        total_diff_display = f"{float(total_diff_value):+.2f}" if pd.notna(total_diff_value) else "N/A"
-                        st.caption("Total Difference")
-                        st.write(total_diff_display)
+    cards_html = ['<div class="matchup-board-grid">']
+    for _, row in display_df.iterrows():
+        cards_html.append(build_full_matchup_card_html(row))
+    cards_html.append("</div>")
+    st.markdown("".join(cards_html), unsafe_allow_html=True)
 
     st.markdown('</div>', unsafe_allow_html=True)
 
@@ -3734,7 +4607,7 @@ def render_editable_board(display_df):
         edited_df = st.data_editor(
             display_df,
             hide_index=True,
-            use_container_width=True,
+            width="stretch",
             disabled=[
                 "Away",
                 "Home",
