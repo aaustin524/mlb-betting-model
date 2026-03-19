@@ -1,6 +1,8 @@
 import os
 import sys
 import math
+import base64
+import mimetypes
 from datetime import datetime
 from html import escape
 from textwrap import dedent
@@ -2509,7 +2511,10 @@ def get_team_logo_src(team_name):
         for ext in ["svg", "png", "webp", "jpg", "jpeg"]:
             candidate = os.path.join(assets_dir, f"{slug}.{ext}")
             if os.path.exists(candidate):
-                return candidate
+                mime_type = mimetypes.guess_type(candidate)[0] or "image/png"
+                with open(candidate, "rb") as logo_file:
+                    encoded = base64.b64encode(logo_file.read()).decode("ascii")
+                return f"data:{mime_type};base64,{encoded}"
     return build_team_logo_data_uri(team_text)
 
 
