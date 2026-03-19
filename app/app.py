@@ -4258,7 +4258,7 @@ def render_matchup_table(display_df):
     for _, row in display_df.iterrows():
         rows_html.append(build_compact_matchup_row_html(row))
     rows_html.append("</div>")
-    st.markdown("".join(rows_html), unsafe_allow_html=True)
+    st.html("".join(rows_html))
     st.markdown('</div>', unsafe_allow_html=True)
 
 
@@ -4595,7 +4595,7 @@ def render_matchup_cards(display_df):
     for _, row in display_df.iterrows():
         cards_html.append(build_full_matchup_card_html(row))
     cards_html.append("</div>")
-    st.markdown("".join(cards_html), unsafe_allow_html=True)
+    st.html("".join(cards_html))
 
     st.markdown('</div>', unsafe_allow_html=True)
 
