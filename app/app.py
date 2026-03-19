@@ -661,7 +661,7 @@ def inject_app_styles():
         }
         .board-status-badge.top-total {
             background: rgba(243, 156, 18, 0.16);
-            color: var(--totals);
+            color: var(--accent);
             border: 1px solid rgba(243, 156, 18, 0.34);
         }
         .board-status-badge.lean {
@@ -1442,7 +1442,7 @@ def inject_app_styles():
             border-radius: 18px;
             padding: 0.95rem 1rem;
             background:
-                radial-gradient(circle at top left, rgba(119, 183, 255, 0.12), transparent 34%),
+                radial-gradient(circle at top left, rgba(249, 115, 22, 0.12), transparent 34%),
                 linear-gradient(180deg, rgba(18, 29, 45, 0.98) 0%, rgba(11, 21, 34, 0.98) 100%);
             border: 1px solid var(--border);
             box-shadow: 0 14px 32px rgba(0, 0, 0, 0.22);
@@ -1454,7 +1454,7 @@ def inject_app_styles():
             border-color: rgba(255, 207, 90, 0.28);
         }
         .summary-stat-card.accent-total {
-            border-color: rgba(110, 203, 255, 0.28);
+            border-color: rgba(100, 116, 139, 0.28);
         }
         .summary-stat-label {
             color: var(--text-muted);
@@ -1480,7 +1480,7 @@ def inject_app_styles():
             border-radius: 20px;
             padding: 0.95rem 1rem;
             background:
-                radial-gradient(circle at top left, rgba(119, 183, 255, 0.10), transparent 30%),
+                radial-gradient(circle at top left, rgba(249, 115, 22, 0.10), transparent 30%),
                 linear-gradient(180deg, rgba(18, 29, 45, 0.98) 0%, rgba(10, 20, 34, 0.98) 100%);
             border: 1px solid rgba(126, 155, 194, 0.18);
             box-shadow: 0 14px 32px rgba(0, 0, 0, 0.22);
@@ -1542,7 +1542,7 @@ def inject_app_styles():
             overflow: hidden;
             border-radius: 22px;
             background:
-                radial-gradient(circle at top left, rgba(119, 183, 255, 0.12), transparent 28%),
+                radial-gradient(circle at top left, rgba(249, 115, 22, 0.12), transparent 28%),
                 linear-gradient(180deg, rgba(18, 29, 45, 0.98) 0%, rgba(10, 20, 34, 0.98) 100%);
             border: 1px solid var(--border);
             box-shadow: var(--shadow-lg);
@@ -1550,7 +1550,7 @@ def inject_app_styles():
         }
         .matchup-card:hover {
             transform: translateY(-2px);
-            border-color: rgba(119, 183, 255, 0.28);
+            border-color: rgba(249, 115, 22, 0.28);
             box-shadow: 0 22px 52px rgba(0, 0, 0, 0.38);
         }
         .matchup-card::before {
@@ -1567,7 +1567,7 @@ def inject_app_styles():
             background: linear-gradient(180deg, #ffcf5a 0%, #ffad33 100%);
         }
         .matchup-card.total::before {
-            background: linear-gradient(180deg, #6ecbff 0%, #2d9cff 100%);
+            background: linear-gradient(180deg, #64748B 0%, #475569 100%);
         }
         .matchup-card.negative::before {
             background: linear-gradient(180deg, #ff7e7e 0%, #ff5252 100%);
@@ -1623,7 +1623,7 @@ def inject_app_styles():
             border-color: rgba(54, 212, 140, 0.24);
         }
         .recommendation-card.total {
-            border-color: rgba(110, 203, 255, 0.24);
+            border-color: rgba(100, 116, 139, 0.24);
         }
         .recommendation-label {
             color: var(--text-muted);
@@ -1727,7 +1727,7 @@ def inject_app_styles():
             color: var(--positive);
         }
         .team-card-prob.neutral {
-            color: var(--totals);
+            color: var(--neutral);
         }
         .team-card-meta {
             display: grid;
@@ -1843,7 +1843,7 @@ def inject_app_styles():
             border-color: rgba(54, 212, 140, 0.26);
         }
         .signal-card.total {
-            border-color: rgba(110, 203, 255, 0.26);
+            border-color: rgba(100, 116, 139, 0.26);
         }
         .market-detail {
             margin-top: 0.8rem;
@@ -1875,7 +1875,7 @@ def inject_app_styles():
             border-radius: 20px;
             padding: 0.88rem 0.92rem;
             background:
-                radial-gradient(circle at top left, rgba(119, 183, 255, 0.08), transparent 28%),
+                radial-gradient(circle at top left, rgba(249, 115, 22, 0.08), transparent 28%),
                 linear-gradient(180deg, rgba(18, 29, 45, 0.98) 0%, rgba(10, 20, 34, 0.98) 100%);
             border: 1px solid var(--border);
             box-shadow: 0 14px 34px rgba(0, 0, 0, 0.22);
@@ -1883,7 +1883,7 @@ def inject_app_styles():
         }
         .board-row:hover {
             transform: translateY(-1px);
-            border-color: rgba(119, 183, 255, 0.24);
+            border-color: rgba(249, 115, 22, 0.24);
         }
         .board-row-main {
             display: grid;
@@ -1942,7 +1942,7 @@ def inject_app_styles():
         .stButton > button:hover, .stDownloadButton > button:hover {
             border-color: var(--accent);
             color: #FFFFFF;
-            box-shadow: 0 0 0 1px rgba(119, 183, 255, 0.18);
+            box-shadow: 0 0 0 1px rgba(249, 115, 22, 0.18);
         }
         button[kind="secondaryFormSubmit"] {
             border-radius: 14px !important;
@@ -1987,8 +1987,8 @@ def inject_app_styles():
         }
         [data-testid="stRadio"] [role="radiogroup"] label:has(input:checked) {
             background: linear-gradient(180deg, rgba(35, 55, 84, 0.98) 0%, rgba(20, 32, 50, 0.98) 100%) !important;
-            border-color: rgba(119, 183, 255, 0.26) !important;
-            box-shadow: inset 0 0 0 1px rgba(119, 183, 255, 0.06);
+            border-color: rgba(249, 115, 22, 0.26) !important;
+            box-shadow: inset 0 0 0 1px rgba(249, 115, 22, 0.06);
         }
         [data-testid="stRadio"] [role="radiogroup"] label p {
             color: var(--text-muted) !important;
@@ -2027,8 +2027,8 @@ def inject_app_styles():
         [data-testid="stTabs"] [aria-selected="true"] {
             color: var(--text) !important;
             background: linear-gradient(180deg, rgba(33, 50, 76, 0.98) 0%, rgba(18, 29, 45, 0.98) 100%) !important;
-            border-color: rgba(119, 183, 255, 0.30) !important;
-            box-shadow: inset 0 0 0 1px rgba(119, 183, 255, 0.06);
+            border-color: rgba(249, 115, 22, 0.30) !important;
+            box-shadow: inset 0 0 0 1px rgba(249, 115, 22, 0.06);
         }
         [data-testid="stExpander"] details {
             border-radius: 18px;
@@ -2608,7 +2608,7 @@ def format_moneyline(odds_value):
 
 def get_team_branding(team_name):
     team_text = str(team_name).strip() if team_name is not None and not pd.isna(team_name) else ""
-    default = {"abbr": team_text[:3].upper() if team_text else "MLB", "primary": "#20314b", "secondary": "#77b7ff"}
+    default = {"abbr": team_text[:3].upper() if team_text else "MLB", "primary": "#334155", "secondary": "#F97316"}
     return TEAM_BRANDING.get(team_text, default)
 
 
