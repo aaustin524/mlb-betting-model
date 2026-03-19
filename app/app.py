@@ -1177,10 +1177,10 @@ def inject_app_styles():
         }
         .monitor-toolbar-topline {
             display: flex;
-            justify-content: space-between;
+            justify-content: flex-start;
             align-items: flex-start;
             gap: 0.8rem;
-            margin-bottom: 0.7rem;
+            margin-bottom: 0.55rem;
         }
         .monitor-toolbar-kicker {
             color: var(--totals);
@@ -1194,13 +1194,6 @@ def inject_app_styles():
             font-size: 1.02rem;
             font-weight: 780;
             margin-top: 0.26rem;
-        }
-        .monitor-toolbar-note {
-            color: var(--text-muted);
-            font-size: 0.78rem;
-            font-weight: 600;
-            white-space: nowrap;
-            padding-top: 0.18rem;
         }
         .monitor-toolbar-slot {
             min-height: 100%;
@@ -1224,49 +1217,11 @@ def inject_app_styles():
         .monitor-toolbar-shell [data-testid="stRadio"] {
             margin-top: 0.05rem;
         }
-        .monitor-toolbar-shell [data-testid="stTextInput"] {
-            margin-bottom: 0.35rem;
-        }
-        .monitor-toolbar-shell [data-testid="stTextInput"] > div {
-            margin-top: 0;
-        }
-        .monitor-toolbar-shell [data-testid="stTextInput"] input {
-            min-height: 2.7rem;
-            border-radius: 999px !important;
-            font-size: 0.9rem !important;
-            font-weight: 650 !important;
-            padding-left: 0.95rem !important;
-            background: linear-gradient(180deg, rgba(15, 23, 42, 0.98) 0%, rgba(10, 17, 28, 0.98) 100%) !important;
-            border: 1px solid rgba(100, 116, 139, 0.20) !important;
-        }
-        .monitor-toolbar-shell [data-testid="stTextInput"] input::placeholder {
-            color: rgba(203, 213, 225, 0.46) !important;
-        }
-        .monitor-toolbar-shell [data-testid="stTextInput"] input:focus {
-            border-color: rgba(249, 115, 22, 0.34) !important;
-            box-shadow: 0 0 0 1px rgba(249, 115, 22, 0.12) !important;
-        }
-        .monitor-toolbar-shell [data-testid="stButton"] button {
-            min-height: 2.35rem;
-            border-radius: 999px !important;
-            padding: 0.35rem 0.72rem !important;
-            background: linear-gradient(180deg, rgba(51, 65, 85, 0.70) 0%, rgba(30, 41, 59, 0.92) 100%) !important;
-            border: 1px solid rgba(100, 116, 139, 0.20) !important;
-            color: var(--text-muted) !important;
-            box-shadow: none !important;
-            font-size: 0.76rem !important;
-            font-weight: 760 !important;
-        }
-        .monitor-toolbar-shell [data-testid="stButton"] button:hover {
-            border-color: rgba(249, 115, 22, 0.24) !important;
-            color: var(--text) !important;
-            background: linear-gradient(180deg, rgba(71, 85, 105, 0.72) 0%, rgba(30, 41, 59, 0.96) 100%) !important;
-        }
         .monitor-filter-pill-row {
             display: flex;
             flex-wrap: wrap;
             gap: 0.5rem;
-            margin-top: 0.75rem;
+            margin-top: 0.55rem;
         }
         .monitor-filter-pill {
             display: inline-flex;

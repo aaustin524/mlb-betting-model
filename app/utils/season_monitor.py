@@ -778,14 +778,6 @@ def _slice_monitor_dataframe(dataframe, row_limit):
     return dataframe.head(row_limit).copy()
 
 
-def _filter_monitor_team(dataframe, team_filter):
-    if dataframe is None or dataframe.empty or team_filter == "All Teams":
-        return dataframe
-    if "Team" not in dataframe.columns:
-        return dataframe
-    return dataframe.loc[dataframe["Team"] == team_filter].reset_index(drop=True)
-
-
 def build_pitcher_watch(pitcher_ratings_df, daily_board_inputs=None):
     if pitcher_ratings_df is None or pitcher_ratings_df.empty:
         return pd.DataFrame(), pd.DataFrame()
@@ -1131,42 +1123,16 @@ def _render_monitor_notes(notes):
     st.markdown("".join(notes_html), unsafe_allow_html=True)
 
 
-def _render_monitor_active_filters(league_filter, table_view, team_filter, row_limit):
+def _render_monitor_active_filters(league_filter, row_limit):
     filter_items = [
         ("Scope", league_filter),
         ("Rows", "All" if row_limit is None else str(row_limit)),
-        ("Team", team_filter if team_filter != "All Teams" else "All clubs"),
-        ("View", table_view),
     ]
     chips = "".join(
         f'<span class="monitor-filter-pill"><span class="monitor-filter-pill-label">{escape(label)}</span>{escape(value)}</span>'
         for label, value in filter_items
     )
     st.markdown(f'<div class="monitor-filter-pill-row">{chips}</div>', unsafe_allow_html=True)
-
-
-def _resolve_monitor_team_filter(team_filter_options):
-    search_value = st.text_input(
-        "Team Lookup",
-        key="season_monitor_team_search",
-        value=st.session_state.get("season_monitor_team_search", ""),
-        placeholder="Search team or leave blank",
-        label_visibility="collapsed",
-    ).strip()
-
-    if not search_value:
-        return "All Teams"
-
-    normalized_search = search_value.lower()
-    exact_match = next((team for team in team_filter_options if team.lower() == normalized_search), None)
-    if exact_match:
-        return exact_match
-
-    partial_match = next((team for team in team_filter_options if normalized_search in team.lower()), None)
-    if partial_match:
-        return partial_match
-
-    return "All Teams"
 
 
 def _format_team_profile_value(dataframe, column_name, formatter):
@@ -1183,7 +1149,7 @@ def _render_team_profile_card(
     bullpen_df,
     power_df,
 ):
-    if not team_name or team_name == "All Teams":
+    if not team_name:
         return
 
     projected_wins = _format_team_profile_value(projected_df, "Projected Wins", lambda value: f"{float(value):.1f}")
@@ -1498,21 +1464,19 @@ def render_season_monitor(
         unsafe_allow_html=True,
     )
 
-    team_filter_options = ["All Teams"] + sorted(projected_standings_df["Team"].tolist())
     st.markdown(
         """
         <div class="monitor-toolbar-shell">
             <div class="monitor-toolbar-topline">
                 <div>
                     <div class="monitor-toolbar-kicker">Driver controls</div>
-                    <div class="monitor-toolbar-title">Scope the board</div>
+                    <div class="monitor-toolbar-title">Scope</div>
                 </div>
-                <div class="monitor-toolbar-note">Tight filters. Faster reads.</div>
             </div>
         """,
         unsafe_allow_html=True,
     )
-    control_col_1, control_col_2, control_col_3 = st.columns([1.15, 1.1, 1.55])
+    control_col_1, control_col_2 = st.columns([1.2, 1.1])
     with control_col_1:
         st.markdown('<div class="monitor-toolbar-slot"><div class="monitor-toolbar-label">Scope</div>', unsafe_allow_html=True)
         league_filter = st.radio(
@@ -1533,21 +1497,6 @@ def render_season_monitor(
             label_visibility="collapsed",
         )
         st.markdown("</div>", unsafe_allow_html=True)
-    with control_col_3:
-        st.markdown('<div class="monitor-toolbar-slot"><div class="monitor-toolbar-label">Team</div>', unsafe_allow_html=True)
-        team_filter = _resolve_monitor_team_filter(team_filter_options)
-        quick_team_options = ["All Teams"] + team_filter_options[1:3]
-        quick_team_cols = st.columns(len(quick_team_options))
-        for quick_col, quick_team in zip(quick_team_cols, quick_team_options):
-            with quick_col:
-                if st.button(
-                    "All" if quick_team == "All Teams" else quick_team.split()[-1],
-                    key=f"season_monitor_team_quick_{quick_team}",
-                    use_container_width=True,
-                ):
-                    st.session_state["season_monitor_team_search"] = "" if quick_team == "All Teams" else quick_team
-                    st.rerun()
-        st.markdown("</div>", unsafe_allow_html=True)
 
     impact_inputs = daily_board_inputs.copy() if daily_board_inputs is not None else None
     if impact_inputs is not None and not impact_inputs.empty:
@@ -1558,67 +1507,53 @@ def render_season_monitor(
             impact_inputs = impact_inputs.loc[
                 impact_inputs["Away"].isin(league_teams) | impact_inputs["Home"].isin(league_teams)
             ].copy()
-        if team_filter != "All Teams":
-            impact_inputs = impact_inputs.loc[
-                (impact_inputs["Away"] == team_filter) | (impact_inputs["Home"] == team_filter)
-            ].copy()
     today_impact_cards = build_today_impact(impact_inputs, bullpen_stress_df)
 
     row_limit = _get_monitor_row_limit(table_view)
-    _render_monitor_active_filters(league_filter, table_view, team_filter, row_limit)
+    _render_monitor_active_filters(league_filter, row_limit)
     st.markdown("</div>", unsafe_allow_html=True)
     projected_standings_view = _slice_monitor_dataframe(
-        _filter_monitor_team(_filter_monitor_dataframe(projected_standings_df, league_filter), team_filter),
+        _filter_monitor_dataframe(projected_standings_df, league_filter),
         row_limit,
     )
     power_rankings_view = _slice_monitor_dataframe(
-        _filter_monitor_team(_filter_monitor_dataframe(power_rankings_df, league_filter), team_filter),
+        _filter_monitor_dataframe(power_rankings_df, league_filter),
         row_limit,
     )
     strength_rankings_view = _slice_monitor_dataframe(
-        _filter_monitor_team(_filter_monitor_dataframe(strength_rankings_df, league_filter), team_filter),
+        _filter_monitor_dataframe(strength_rankings_df, league_filter),
         row_limit,
     )
     offenses_view = _slice_monitor_dataframe(
-        _filter_monitor_team(_filter_monitor_dataframe(offenses_df, league_filter), team_filter),
+        _filter_monitor_dataframe(offenses_df, league_filter),
         row_limit,
     )
     pitching_view = _slice_monitor_dataframe(
-        _filter_monitor_team(_filter_monitor_dataframe(pitching_df, league_filter), team_filter),
+        _filter_monitor_dataframe(pitching_df, league_filter),
         row_limit,
     )
     bullpen_view = _slice_monitor_dataframe(
-        _filter_monitor_team(_filter_monitor_dataframe(bullpen_df, league_filter), team_filter),
+        _filter_monitor_dataframe(bullpen_df, league_filter),
         row_limit,
     )
-    pitcher_watch_view = _slice_monitor_dataframe(_filter_monitor_team(pitcher_watch_df, team_filter), row_limit)
-    today_pitchers_view = _slice_monitor_dataframe(_filter_monitor_team(today_pitchers_df, team_filter), row_limit)
+    pitcher_watch_view = _slice_monitor_dataframe(pitcher_watch_df, row_limit)
+    today_pitchers_view = _slice_monitor_dataframe(today_pitchers_df, row_limit)
     lineup_monitor_view = _slice_monitor_dataframe(
-        _filter_monitor_team(_filter_monitor_dataframe(lineup_monitor_df, league_filter), team_filter),
+        _filter_monitor_dataframe(lineup_monitor_df, league_filter),
         row_limit,
     )
     bullpen_leaders_view = _slice_monitor_dataframe(
-        _filter_monitor_team(_filter_monitor_dataframe(bullpen_leaders_df, league_filter), team_filter),
+        _filter_monitor_dataframe(bullpen_leaders_df, league_filter),
         row_limit,
     )
     bullpen_stress_view = _slice_monitor_dataframe(
-        _filter_monitor_team(_filter_monitor_dataframe(bullpen_stress_df, league_filter), team_filter),
+        _filter_monitor_dataframe(bullpen_stress_df, league_filter),
         row_limit,
     )
     model_movers_view = _slice_monitor_dataframe(
-        _filter_monitor_team(_filter_monitor_dataframe(model_movers_df, league_filter), team_filter),
+        _filter_monitor_dataframe(model_movers_df, league_filter),
         row_limit,
     )
-
-    if team_filter != "All Teams":
-        _render_team_profile_card(
-            team_filter,
-            projected_standings_view,
-            offenses_view,
-            pitching_view if not pitching_view.empty else bullpen_leaders_view,
-            bullpen_view,
-            power_rankings_view,
-        )
 
     best_pitcher_driver = _get_best_pitcher_driver_card(today_pitchers_view, pitcher_watch_view)
 
@@ -1719,7 +1654,7 @@ def render_season_monitor(
                 },
             )
     with st.container():
-        with st.expander("Lineup Strength", expanded=(team_filter != "All Teams")):
+        with st.expander("Lineup Strength", expanded=False):
             st.markdown(
                 '<div class="monitor-expander-copy">Lineup score | confidence.</div>',
                 unsafe_allow_html=True,
@@ -1743,7 +1678,7 @@ def render_season_monitor(
             )
     st.markdown('</div>', unsafe_allow_html=True)
 
-    with st.expander("Bullpen Monitor", expanded=(team_filter != "All Teams")):
+    with st.expander("Bullpen Monitor", expanded=False):
         st.markdown(
             '<div class="monitor-expander-copy">Quality | stress.</div>',
             unsafe_allow_html=True,
@@ -1780,7 +1715,7 @@ def render_season_monitor(
                 },
             )
 
-    with st.expander("Model Movers", expanded=(team_filter != "All Teams")):
+    with st.expander("Model Movers", expanded=False):
         st.markdown(
             '<div class="monitor-expander-copy">Driver mix.</div>',
             unsafe_allow_html=True,
