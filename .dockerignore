@@ -1,0 +1,11 @@
+.git
+.gitignore
+.venv
+venv
+__pycache__
+*.pyc
+.env
+.streamlit/secrets.toml
+db/*.sqlite
+tests/
+MODEL_PROGRESS.md

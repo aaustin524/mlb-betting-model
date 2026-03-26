@@ -75,6 +75,27 @@ def _calibrate_run_distribution_tails(run_draws, rng):
     return calibrated_runs
 
 
+def _draw_negative_binomial_runs(expected_runs, sims, dispersion, rng):
+    """Draw one team's run totals with backward-compatible helper semantics."""
+    expected_runs = float(expected_runs)
+    sims = int(sims)
+    dispersion = float(dispersion)
+    if expected_runs < 0:
+        raise ValueError("expected_runs must be non-negative")
+    if sims <= 0:
+        raise ValueError("sims must be greater than 0")
+    if dispersion <= 0:
+        raise ValueError("dispersion must be greater than 0")
+
+    gamma_draws = rng.gamma(
+        shape=dispersion,
+        scale=1.0 / dispersion,
+        size=sims,
+    )
+    run_draws = rng.poisson(gamma_draws * expected_runs)
+    return _calibrate_run_distribution_tails(run_draws, rng)
+
+
 def _simulate_run_arrays(home_lambda, away_lambda, sims, dispersion_k, rng):
     """
     Draw vectorized home and away run totals from a Gamma-Poisson mixture.

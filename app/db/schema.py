@@ -85,6 +85,87 @@ ON odds_snapshots (game_id, snapshot_time);
 CREATE INDEX IF NOT EXISTS idx_odds_snapshots_game_book_time
 ON odds_snapshots (game_id, sportsbook_name, snapshot_time);
 
+CREATE TABLE IF NOT EXISTS odds_api_cache (
+    cache_id INTEGER PRIMARY KEY,
+    event_id TEXT NOT NULL,
+    sport_key TEXT NOT NULL,
+    regions TEXT NOT NULL,
+    markets TEXT NOT NULL,
+    odds_format TEXT NOT NULL,
+    away_team TEXT NOT NULL,
+    home_team TEXT NOT NULL,
+    commence_time TEXT NOT NULL,
+    fetched_at TEXT NOT NULL,
+    market_data_json TEXT NOT NULL,
+    requests_remaining INTEGER,
+    requests_used INTEGER,
+    requests_last INTEGER,
+    source TEXT NOT NULL DEFAULT 'LIVE API'
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_odds_api_cache_unique
+ON odds_api_cache (event_id, regions, markets, odds_format);
+
+CREATE INDEX IF NOT EXISTS idx_odds_api_cache_lookup
+ON odds_api_cache (sport_key, regions, markets, odds_format, commence_time);
+
+CREATE TABLE IF NOT EXISTS performance_bets (
+    performance_bet_id INTEGER PRIMARY KEY,
+    tracking_key TEXT NOT NULL UNIQUE,
+    snapshot_group_id TEXT NOT NULL,
+    snapshot_timestamp TEXT NOT NULL,
+    snapshot_note TEXT,
+    game_date TEXT,
+    game_id INTEGER,
+    game_match_method TEXT,
+    away_team TEXT NOT NULL,
+    home_team TEXT NOT NULL,
+    market_type TEXT NOT NULL,
+    event_id TEXT,
+    bookmaker_key TEXT,
+    sport_key TEXT,
+    commence_time TEXT,
+    sportsbook TEXT,
+    pick TEXT NOT NULL,
+    model_win_probability REAL,
+    projected_total REAL,
+    locked_line REAL,
+    locked_odds INTEGER,
+    locked_implied_probability REAL,
+    market_implied_probability REAL,
+    market_no_vig_probability REAL,
+    edge REAL,
+    ev REAL,
+    best_bet_flag TEXT,
+    signal_strength TEXT,
+    is_actionable INTEGER NOT NULL DEFAULT 0,
+    tracking_mode TEXT NOT NULL DEFAULT 'full_visible_board',
+    edge_bucket TEXT,
+    source TEXT NOT NULL DEFAULT 'manual',
+    closing_line REAL,
+    closing_odds INTEGER,
+    closing_implied_probability REAL,
+    closing_captured_at TEXT,
+    clv_value REAL,
+    clv_direction TEXT,
+    close_status TEXT,
+    result TEXT,
+    units REAL,
+    clv REAL,
+    final_away_runs REAL,
+    final_home_runs REAL,
+    graded_at TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (game_id) REFERENCES games (game_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_performance_bets_game_date
+ON performance_bets (game_date, snapshot_timestamp);
+
+CREATE INDEX IF NOT EXISTS idx_performance_bets_market_type
+ON performance_bets (market_type, signal_strength);
+
 CREATE TABLE IF NOT EXISTS model_features (
     feature_id INTEGER PRIMARY KEY,
     game_id INTEGER NOT NULL UNIQUE,
@@ -127,6 +208,9 @@ CREATE TABLE IF NOT EXISTS predictions (
     recommended_bet INTEGER,
     FOREIGN KEY (game_id) REFERENCES games (game_id)
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_predictions_game_model
+ON predictions (game_id, model_version);
 
 CREATE TABLE IF NOT EXISTS tracked_bets (
     tracking_id INTEGER PRIMARY KEY,
@@ -216,6 +300,22 @@ ODDS_SNAPSHOTS_COLUMNS = {
     "under_price": "INTEGER",
 }
 
+PREDICTIONS_COLUMNS = {
+    "game_id": "INTEGER NOT NULL",
+    "model_version": "TEXT NOT NULL",
+    "prediction_time": "TEXT NOT NULL",
+    "home_win_prob": "REAL NOT NULL",
+    "away_win_prob": "REAL NOT NULL",
+    "market_home_implied_prob_raw": "REAL",
+    "market_away_implied_prob_raw": "REAL",
+    "market_home_implied_prob_no_vig": "REAL",
+    "market_away_implied_prob_no_vig": "REAL",
+    "edge_home": "REAL",
+    "edge_away": "REAL",
+    "recommended_side": "TEXT",
+    "recommended_bet": "INTEGER",
+}
+
 TRACKED_BETS_COLUMNS = {
     "tracking_key": "TEXT",
     "grading_key": "TEXT",
@@ -264,6 +364,72 @@ TRACKED_BETS_COLUMNS = {
     "grading_source": "TEXT",
     "graded_timestamp": "TEXT",
     "grading_note": "TEXT",
+    "created_at": "TEXT DEFAULT CURRENT_TIMESTAMP",
+    "updated_at": "TEXT DEFAULT CURRENT_TIMESTAMP",
+}
+
+ODDS_API_CACHE_COLUMNS = {
+    "event_id": "TEXT NOT NULL",
+    "sport_key": "TEXT NOT NULL",
+    "regions": "TEXT NOT NULL",
+    "markets": "TEXT NOT NULL",
+    "odds_format": "TEXT NOT NULL",
+    "away_team": "TEXT NOT NULL",
+    "home_team": "TEXT NOT NULL",
+    "commence_time": "TEXT NOT NULL",
+    "fetched_at": "TEXT NOT NULL",
+    "market_data_json": "TEXT NOT NULL",
+    "requests_remaining": "INTEGER",
+    "requests_used": "INTEGER",
+    "requests_last": "INTEGER",
+    "source": "TEXT NOT NULL DEFAULT 'LIVE API'",
+}
+
+PERFORMANCE_BETS_COLUMNS = {
+    "tracking_key": "TEXT NOT NULL",
+    "snapshot_group_id": "TEXT NOT NULL",
+    "snapshot_timestamp": "TEXT NOT NULL",
+    "snapshot_note": "TEXT",
+    "game_date": "TEXT",
+    "game_id": "INTEGER",
+    "game_match_method": "TEXT",
+    "away_team": "TEXT NOT NULL",
+    "home_team": "TEXT NOT NULL",
+    "market_type": "TEXT NOT NULL",
+    "event_id": "TEXT",
+    "bookmaker_key": "TEXT",
+    "sport_key": "TEXT",
+    "commence_time": "TEXT",
+    "sportsbook": "TEXT",
+    "pick": "TEXT NOT NULL",
+    "model_win_probability": "REAL",
+    "projected_total": "REAL",
+    "locked_line": "REAL",
+    "locked_odds": "INTEGER",
+    "locked_implied_probability": "REAL",
+    "market_implied_probability": "REAL",
+    "market_no_vig_probability": "REAL",
+    "edge": "REAL",
+    "ev": "REAL",
+    "best_bet_flag": "TEXT",
+    "signal_strength": "TEXT",
+    "is_actionable": "INTEGER NOT NULL DEFAULT 0",
+    "tracking_mode": "TEXT NOT NULL DEFAULT 'full_visible_board'",
+    "edge_bucket": "TEXT",
+    "source": "TEXT NOT NULL DEFAULT 'manual'",
+    "closing_line": "REAL",
+    "closing_odds": "INTEGER",
+    "closing_implied_probability": "REAL",
+    "closing_captured_at": "TEXT",
+    "clv_value": "REAL",
+    "clv_direction": "TEXT",
+    "close_status": "TEXT",
+    "result": "TEXT",
+    "units": "REAL",
+    "clv": "REAL",
+    "final_away_runs": "REAL",
+    "final_home_runs": "REAL",
+    "graded_at": "TEXT",
     "created_at": "TEXT DEFAULT CURRENT_TIMESTAMP",
     "updated_at": "TEXT DEFAULT CURRENT_TIMESTAMP",
 }
@@ -339,6 +505,82 @@ def ensure_tracked_bets_columns(connection: sqlite3.Connection) -> None:
     )
 
 
+def ensure_predictions_columns(connection: sqlite3.Connection) -> None:
+    """Add any newer prediction columns that are missing from an existing table."""
+    existing_columns = {
+        row[1] for row in connection.execute("PRAGMA table_info(predictions)").fetchall()
+    }
+
+    for column_name, column_type in PREDICTIONS_COLUMNS.items():
+        if column_name in existing_columns:
+            continue
+        connection.execute(
+            f"ALTER TABLE predictions ADD COLUMN {column_name} {column_type}"
+        )
+
+    connection.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_predictions_game_model ON predictions (game_id, model_version)"
+    )
+
+
+def ensure_odds_api_cache_columns(connection: sqlite3.Connection) -> None:
+    """Add any newer cache columns that are missing from the odds API cache."""
+    existing_tables = {
+        row[0]
+        for row in connection.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table'"
+        ).fetchall()
+    }
+    if "odds_api_cache" not in existing_tables:
+        return
+
+    existing_columns = {
+        row[1] for row in connection.execute("PRAGMA table_info(odds_api_cache)").fetchall()
+    }
+    for column_name, column_type in ODDS_API_CACHE_COLUMNS.items():
+        if column_name in existing_columns:
+            continue
+        connection.execute(
+            f"ALTER TABLE odds_api_cache ADD COLUMN {column_name} {column_type}"
+        )
+
+    connection.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_odds_api_cache_unique ON odds_api_cache (event_id, regions, markets, odds_format)"
+    )
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_odds_api_cache_lookup ON odds_api_cache (sport_key, regions, markets, odds_format, commence_time)"
+    )
+
+
+def ensure_performance_bets_columns(connection: sqlite3.Connection) -> None:
+    """Add any newer performance tracking columns that are missing."""
+    existing_tables = {
+        row[0]
+        for row in connection.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table'"
+        ).fetchall()
+    }
+    if "performance_bets" not in existing_tables:
+        return
+
+    existing_columns = {
+        row[1] for row in connection.execute("PRAGMA table_info(performance_bets)").fetchall()
+    }
+    for column_name, column_type in PERFORMANCE_BETS_COLUMNS.items():
+        if column_name in existing_columns:
+            continue
+        connection.execute(
+            f"ALTER TABLE performance_bets ADD COLUMN {column_name} {column_type}"
+        )
+
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_performance_bets_game_date ON performance_bets (game_date, snapshot_timestamp)"
+    )
+    connection.execute(
+        "CREATE INDEX IF NOT EXISTS idx_performance_bets_market_type ON performance_bets (market_type, signal_strength)"
+    )
+
+
 def initialize_database(db_path: Path | None = None) -> Path:
     """Create the SQLite database and all project tables."""
     target_path = db_path or get_db_path()
@@ -349,7 +591,10 @@ def initialize_database(db_path: Path | None = None) -> Path:
         connection.executescript(SCHEMA_SQL)
         ensure_model_features_columns(connection)
         ensure_odds_snapshots_columns(connection)
+        ensure_predictions_columns(connection)
         ensure_tracked_bets_columns(connection)
+        ensure_odds_api_cache_columns(connection)
+        ensure_performance_bets_columns(connection)
         connection.commit()
 
     return target_path

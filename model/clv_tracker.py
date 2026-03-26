@@ -3,15 +3,19 @@
 from __future__ import annotations
 
 import argparse
-import os
 from datetime import datetime
 from typing import Any
 
 import pandas as pd
 import requests
 
-from db.connection import get_connection
-from db.schema import initialize_database
+try:
+    from db.connection import get_connection
+    from db.schema import initialize_database
+except ModuleNotFoundError:
+    from app.db.connection import get_connection
+    from app.db.schema import initialize_database
+from app.runtime_env import get_odds_api_key
 
 
 ODDS_API_BASE_URL = "https://api.the-odds-api.com/v4/sports/baseball_mlb/odds"
@@ -43,7 +47,11 @@ def normalize_team_name(team_name: str | None) -> str:
         normalized = normalized.replace(old_value, new_value)
 
     tokens = [token for token in normalized.split() if token not in {"the"}]
-    return " ".join(tokens)
+    normalized_value = " ".join(tokens)
+    alias_map = {
+        "athletics": "oakland athletics",
+    }
+    return alias_map.get(normalized_value, normalized_value)
 
 
 def normalize_sportsbook_name(sportsbook_name: str | None) -> str:
@@ -170,7 +178,7 @@ def parse_bookmaker_totals_market(bookmaker: dict[str, Any] | None) -> dict[str,
 
 def fetch_current_market_map(regions: str = DEFAULT_REGIONS) -> dict[tuple[str, str, str], dict[str, Any]]:
     """Fetch current h2h and totals markets for all MLB games."""
-    api_key = os.getenv("ODDS_API_KEY")
+    api_key = get_odds_api_key()
     if not api_key:
         raise ValueError("ODDS_API_KEY is missing. Add it to your environment before updating closing lines.")
 

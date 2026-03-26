@@ -1,10 +1,11 @@
 services:
   - type: web
-    name: mlb-betting-model
-    env: python
+    name: mlb-betting-model-reflex
+    runtime: docker
     plan: starter
-    buildCommand: pip install -r requirements.txt
-    startCommand: streamlit run app/app.py --server.address 0.0.0.0 --server.port $PORT
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /ping/
     envVars:
       - key: ODDS_API_KEY
         sync: false
@@ -12,6 +13,12 @@ services:
         value: /var/data/mlb_betting_model.sqlite
       - key: MLB_MODEL_HISTORY_DIR
         value: /var/data/history
+      - key: PORT
+        value: 10000
+      - key: API_URL
+        sync: false
+      - key: DEPLOY_URL
+        sync: false
     disk:
       name: mlb-betting-data
       mountPath: /var/data

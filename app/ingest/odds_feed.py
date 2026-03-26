@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import argparse
 import logging
-import os
 from datetime import datetime
 from typing import Any
 
 import requests
 
+from app.runtime_env import get_odds_api_key
 from project_config import DB_PATH
 from app.db.connection import get_connection
 from app.db.schema import initialize_database
@@ -59,7 +59,7 @@ def configure_logging(log_level: str) -> None:
 
 def get_api_key() -> str:
     """Read the Odds API key from the environment."""
-    api_key = os.getenv("ODDS_API_KEY")
+    api_key = get_odds_api_key()
     if not api_key:
         raise ValueError("ODDS_API_KEY is missing. Add it to your environment before running the odds feed.")
     return api_key

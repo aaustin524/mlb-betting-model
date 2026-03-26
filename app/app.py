@@ -44,7 +44,30 @@ from utils.performance_views import (
     render_performance_summary,
     render_tracked_bet_lifecycle_summary,
 )
-from utils.season_monitor import render_current_standings, render_season_monitor
+from utils.season_monitor import (
+    render_current_standings,
+    render_season_monitor,
+    render_settings_about,
+)
+from services.board_data import (
+    build_daily_input_table as shared_build_daily_input_table,
+    build_display_dataframe as shared_build_display_dataframe,
+    build_summary_metrics as shared_build_summary_metrics,
+    build_top_plays_dataframe as shared_build_top_plays_dataframe,
+    calculate_bet_signal as shared_calculate_bet_signal,
+    calculate_expected_value as shared_calculate_expected_value,
+    calculate_no_vig_probs as shared_calculate_no_vig_probs,
+    calculate_total_bet_signal as shared_calculate_total_bet_signal,
+    calculate_total_probabilities as shared_calculate_total_probabilities,
+    calculate_totals_market_probs as shared_calculate_totals_market_probs,
+    get_default_lineup_adjustment as shared_get_default_lineup_adjustment,
+    get_default_pitcher_rating as shared_get_default_pitcher_rating,
+    get_default_weather as shared_get_default_weather,
+    get_pitcher_throws as shared_get_pitcher_throws,
+    load_lineup_data_frames as shared_load_lineup_data_frames,
+    load_matchups_data as shared_load_matchups_data,
+    load_pitcher_ratings_data as shared_load_pitcher_ratings_data,
+)
 from project_config import (
     DEFAULT_RUN_DISPERSION,
     DEFAULT_SIMS,
@@ -68,7 +91,7 @@ EDGE_PLACEHOLDER = "Pending odds"
 ODDS_API_KEY_ENV_VAR = "ODDS_API_KEY"
 ODDS_API_SPORT = "baseball_mlb"
 ODDS_API_REGION = "us"
-ODDS_API_MARKETS = "h2h,spreads,totals"
+ODDS_API_MARKETS = "h2h,totals"
 ODDS_API_BASE_URL = "https://api.the-odds-api.com/v4/sports"
 HISTORY_DIR = os.getenv("MLB_MODEL_HISTORY_DIR", os.path.join("data", "history"))
 GRADED_RESULTS_PATH = os.path.join(HISTORY_DIR, "graded_results.csv")
@@ -2590,90 +2613,40 @@ def render_simulation_config():
 
 @st.cache_data(show_spinner=False)
 def load_pitcher_ratings(data_mode):
+    # Streamlit cache wrapper over shared UI-agnostic loading logic.
     try:
         if data_mode == "live":
             raise NotImplementedError("Live pitcher ratings are not implemented yet.")
-        pitcher_ratings = pd.read_csv("data/pitcher_ratings.csv")
+        return shared_load_pitcher_ratings_data("data/pitcher_ratings.csv")
     except Exception:
-        pitcher_ratings = pd.read_csv("data/pitcher_ratings.csv")
-
-    for required_col, default_value in {
-        "pitcher_name": "",
-        "pitcher_rating": 1.00,
-        "fip": None,
-        "throws": "",
-    }.items():
-        if required_col not in pitcher_ratings.columns:
-            pitcher_ratings[required_col] = default_value
-
-    return pitcher_ratings
+        return shared_load_pitcher_ratings_data("data/pitcher_ratings.csv")
 
 
 @st.cache_data(show_spinner=False)
 def load_lineup_data():
-    try:
-        hitter_ratings = load_hitter_ratings()
-    except Exception:
-        hitter_ratings = pd.DataFrame(columns=["player_name", "hitter_rating"])
-
-    try:
-        projected_lineups = load_projected_lineups()
-    except Exception:
-        projected_lineups = pd.DataFrame(columns=["team", "player_name"])
-
-    return hitter_ratings, projected_lineups
+    # Streamlit cache wrapper over shared UI-agnostic loading logic.
+    return shared_load_lineup_data_frames()
 
 
 @st.cache_data(show_spinner=False)
 def load_today_matchups_cached(data_mode):
-    return load_today_matchups(data_mode=data_mode)
+    return shared_load_matchups_data(data_mode=data_mode)
 
 
 def get_default_lineup_adjustment(team_name, hitter_ratings, projected_lineups):
-    return calculate_lineup_adjustment(team_name, hitter_ratings, projected_lineups)
+    return shared_get_default_lineup_adjustment(team_name, hitter_ratings, projected_lineups)
 
 
 def get_default_pitcher_rating(pitcher_name, pitcher_ratings):
-    if not pitcher_name or pd.isna(pitcher_name):
-        return 1.00
-
-    pitcher_row = pitcher_ratings.loc[pitcher_ratings["pitcher_name"] == pitcher_name]
-    if pitcher_row.empty:
-        return 1.00
-
-    rating = pitcher_row.iloc[0]["pitcher_rating"]
-    if pd.isna(rating):
-        return 1.00
-
-    return float(rating)
+    return shared_get_default_pitcher_rating(pitcher_name, pitcher_ratings)
 
 
 def get_pitcher_throws(pitcher_name, pitcher_ratings):
-    if not pitcher_name or pd.isna(pitcher_name):
-        return ""
-
-    pitcher_row = pitcher_ratings.loc[pitcher_ratings["pitcher_name"] == pitcher_name]
-    if pitcher_row.empty:
-        return ""
-
-    throws = pitcher_row.iloc[0]["throws"]
-    if pd.isna(throws):
-        return ""
-
-    return str(throws).strip().upper()
+    return shared_get_pitcher_throws(pitcher_name, pitcher_ratings)
 
 
 def get_default_weather(home_team_name, stadium_locations):
-    weather = get_weather_for_team(
-        home_team_name,
-        stadium_locations,
-        data_mode=DATA_MODE,
-    )
-
-    return {
-        "Temp": int(weather.get("temperature_f", 72)),
-        "Wind": float(weather.get("wind_factor", 1.00)),
-    }
+    return shared_get_default_weather(home_team_name, stadium_locations, data_mode=DATA_MODE)
 
 def choose_preferred_bookmaker(bookmakers):
     if not bookmakers:
@@ -2763,47 +2736,52 @@ def parse_bookmaker_totals_market(bookmaker):
 
 @st.cache_data(show_spinner=False, ttl=300)
 def fetch_live_odds(sport_key=ODDS_API_SPORT, region=ODDS_API_REGION, markets=ODDS_API_MARKETS):
-    # Reuse the same key-loading order as the UI so Streamlit secrets work even
-    # after the terminal session or environment has been reset.
+    # Debug mode: fetch and return the raw Odds API payload before any matching
+    # logic runs so request failures are easy to diagnose in the terminal.
     api_key = get_odds_api_key()
+    print(f"[Odds API Debug] API key present: {bool(api_key)}")
     if not api_key:
         raise ValueError(
             f"Missing API key. Add {ODDS_API_KEY_ENV_VAR} to Streamlit secrets or your environment."
         )
 
+    request_url = f"{ODDS_API_BASE_URL}/{sport_key}/odds"
+    params = {
+        "apiKey": api_key,
+        "regions": "us",
+        "markets": "h2h,totals",
+        "oddsFormat": "american",
+    }
+    prepared_request = requests.Request("GET", request_url, params=params).prepare()
+    print(f"[Odds API Debug] Request URL: {prepared_request.url}")
+
     response = requests.get(
-        f"{ODDS_API_BASE_URL}/{sport_key}/odds",
-        params={
-            "apiKey": api_key,
-            "regions": region,
-            "markets": markets,
-            "oddsFormat": "american",
-        },
+        request_url,
+        params=params,
         timeout=20,
     )
-    response.raise_for_status()
+    print(f"[Odds API Debug] Status code: {response.status_code}")
+    print(
+        "[Odds API Debug] Rate-limit headers: "
+        f"x-requests-remaining={response.headers.get('x-requests-remaining')} | "
+        f"x-requests-used={response.headers.get('x-requests-used')}"
+    )
+    print(f"[Odds API Debug] Response body preview:\n{response.text[:1000]}")
 
-    odds_rows = {}
-    for event in response.json():
-        away_team = event.get("away_team")
-        home_team = event.get("home_team")
-        if not away_team or not home_team:
-            continue
+    if response.status_code != 200:
+        print(f"[Odds API Debug] Non-200 response body:\n{response.text}")
+        return []
 
-        bookmakers = event.get("bookmakers", [])
-        team_key = (normalize_team_name(away_team), normalize_team_name(home_team))
-        selected_bookmaker = choose_preferred_bookmaker(bookmakers)
-        h2h_prices = parse_bookmaker_h2h_market(selected_bookmaker, away_team, home_team)
-        totals_prices = parse_bookmaker_totals_market(selected_bookmaker)
-        consensus_prices = build_market_consensus(bookmakers, away_team, home_team)
-        odds_rows[team_key] = {
-            **h2h_prices,
-            **totals_prices,
-            **consensus_prices,
-            "sportsbook": selected_bookmaker.get("title") if selected_bookmaker else None,
-        }
+    try:
+        payload = response.json()
+    except ValueError:
+        print("[Odds API Debug] Response body was not valid JSON.")
+        return []
 
-    return odds_rows
+    if isinstance(payload, list) and len(payload) == 0:
+        print("API returned no games — check sport key, region, or API plan")
+
+    return payload
 
 
 def apply_live_odds_to_board(board_inputs, odds_map):
@@ -2846,20 +2824,7 @@ def american_odds_to_implied_prob(odds_value):
 
 
 def calculate_no_vig_probs(away_odds, home_odds):
-    away_raw = american_odds_to_implied_prob(away_odds)
-    home_raw = american_odds_to_implied_prob(home_odds)
-
-    if away_raw is None or home_raw is None:
-        return away_raw, home_raw, None, None, None
-
-    overround = away_raw + home_raw
-    if overround <= 0:
-        return away_raw, home_raw, None, None, None
-
-    away_no_vig = away_raw / overround
-    home_no_vig = home_raw / overround
-    vig = overround - 1.0
-    return away_raw, home_raw, away_no_vig, home_no_vig, vig
+    return shared_calculate_no_vig_probs(away_odds, home_odds)
 
 
 def format_moneyline(odds_value):
@@ -2970,51 +2935,15 @@ def probability_to_american_odds(probability):
 
 
 def calculate_expected_value(model_win_prob, odds_value):
-    if model_win_prob is None or pd.isna(model_win_prob):
-        return None
-
-    profit = american_odds_profit(odds_value)
-    if profit is None:
-        return None
-
-    win_prob = float(model_win_prob)
-    lose_prob = 1.0 - win_prob
-    return (win_prob * profit) - lose_prob
+    return shared_calculate_expected_value(model_win_prob, odds_value)
 
 
 def calculate_total_probabilities(projected_total, total_line, logistic_k=TOTALS_LOGISTIC_K):
-    if projected_total is None or total_line is None or pd.isna(projected_total) or pd.isna(total_line):
-        return None, None, None
-
-    difference = float(projected_total) - float(total_line)
-    over_prob = 1.0 / (1.0 + math.exp(-difference * logistic_k))
-    under_prob = 1.0 - over_prob
-    return over_prob, under_prob, difference
+    return shared_calculate_total_probabilities(projected_total, total_line, logistic_k=logistic_k)
 
 
 def calculate_totals_market_probs(over_price, under_price):
-    over_raw = american_odds_to_implied_prob(over_price)
-    under_raw = american_odds_to_implied_prob(under_price)
-    over_no_vig = None
-    under_no_vig = None
-    total_hold = None
-
-    if over_raw is not None and under_raw is not None:
-        over_raw, under_raw, over_no_vig, under_no_vig, total_hold = calculate_no_vig_probs(
-            over_price,
-            under_price,
-        )
-
-    over_market_prob = over_no_vig if over_no_vig is not None else over_raw
-    under_market_prob = under_no_vig if under_no_vig is not None else under_raw
-
-    return {
-        "over_raw": over_raw,
-        "under_raw": under_raw,
-        "over_market_prob": over_market_prob,
-        "under_market_prob": under_market_prob,
-        "total_hold": total_hold,
-    }
+    return shared_calculate_totals_market_probs(over_price, under_price)
 
 
 def calculate_total_bet_signal(
@@ -3026,34 +2955,15 @@ def calculate_total_bet_signal(
     strong_edge_threshold=STRONG_TOTAL_EDGE_THRESHOLD,
     lean_ev_threshold=LEAN_TOTAL_EV_THRESHOLD,
 ):
-    candidates = [
-        {"side": "Over", "edge": over_edge_pct, "ev": over_ev},
-        {"side": "Under", "edge": under_edge_pct, "ev": under_ev},
-    ]
-
-    valid_candidates = [
-        candidate
-        for candidate in candidates
-        if candidate["ev"] is not None and not pd.isna(candidate["ev"]) and candidate["ev"] > 0
-    ]
-    if not valid_candidates:
-        return "Pass", "Pass", None, None
-
-    best_candidate = max(
-        valid_candidates,
-        key=lambda candidate: (
-            candidate["ev"],
-            candidate["edge"] if candidate["edge"] is not None else float("-inf"),
-        ),
+    return shared_calculate_total_bet_signal(
+        over_edge_pct,
+        under_edge_pct,
+        over_ev,
+        under_ev,
+        strong_ev_threshold=strong_ev_threshold,
+        strong_edge_threshold=strong_edge_threshold,
+        lean_ev_threshold=lean_ev_threshold,
     )
-    best_edge = best_candidate["edge"]
-    best_ev = best_candidate["ev"]
-
-    if best_ev >= strong_ev_threshold and best_edge is not None and best_edge >= strong_edge_threshold:
-        return best_candidate["side"], "Strong Bet", best_edge, best_ev
-    if best_ev >= lean_ev_threshold and best_edge is not None and best_edge > 0:
-        return best_candidate["side"], "Lean", best_edge, best_ev
-    return "Pass", "Pass", best_edge, best_ev
 
 
 def build_market_consensus(bookmakers, away_team, home_team):
@@ -3120,37 +3030,16 @@ def calculate_bet_signal(
     lean_ev_threshold=LEAN_BET_EV_THRESHOLD,
     lean_edge_threshold=LEAN_BET_EDGE_THRESHOLD,
 ):
-    candidates = [
-        {"side": "Away", "edge": away_edge_pct, "ev": away_ev},
-        {"side": "Home", "edge": home_edge_pct, "ev": home_ev},
-    ]
-
-    valid_candidates = [
-        candidate
-        for candidate in candidates
-        if candidate["ev"] is not None and not pd.isna(candidate["ev"]) and candidate["ev"] > 0
-    ]
-    if not valid_candidates:
-        return "Pass", "Pass", None, None
-
-    best_candidate = max(
-        valid_candidates,
-        key=lambda candidate: (
-            candidate["ev"],
-            candidate["edge"] if candidate["edge"] is not None else float("-inf"),
-        ),
+    return shared_calculate_bet_signal(
+        away_edge_pct,
+        home_edge_pct,
+        away_ev,
+        home_ev,
+        strong_ev_threshold=strong_ev_threshold,
+        strong_edge_threshold=strong_edge_threshold,
+        lean_ev_threshold=lean_ev_threshold,
+        lean_edge_threshold=lean_edge_threshold,
     )
-
-    best_edge = best_candidate["edge"]
-    best_ev = best_candidate["ev"]
-
-    if best_ev >= strong_ev_threshold and best_edge is not None and best_edge >= strong_edge_threshold:
-        return best_candidate["side"], "Strong Bet", best_edge, best_ev
-
-    if best_ev >= lean_ev_threshold and best_edge is not None and best_edge > 0:
-        return best_candidate["side"], "Lean", best_edge, best_ev
-
-    return "Pass", "Pass", best_edge, best_ev
 
 
 def build_daily_input_table(
@@ -3160,61 +3049,16 @@ def build_daily_input_table(
     hitter_ratings,
     projected_lineups,
 ):
-    rows = []
-
-    for _, matchup in matchups.iterrows():
-        away_team_name = matchup.get("away_team", "")
-        home_team_name = matchup.get("home_team", "")
-
-        if away_team_name not in team_ratings.index or home_team_name not in team_ratings.index:
-            continue
-
-        away_pitcher_name = matchup.get("away_pitcher", "")
-        home_pitcher_name = matchup.get("home_pitcher", "")
-
-        if pd.isna(away_pitcher_name):
-            away_pitcher_name = ""
-
-        if pd.isna(home_pitcher_name):
-            home_pitcher_name = ""
-
-        default_weather = get_default_weather(home_team_name, stadium_locations)
-
-        rows.append(
-            {
-                "Away": away_team_name,
-                "Home": home_team_name,
-                "Away Pitcher": away_pitcher_name,
-                "Home Pitcher": home_pitcher_name,
-                "A Hand": get_pitcher_throws(away_pitcher_name, pitcher_ratings),
-                "H Hand": get_pitcher_throws(home_pitcher_name, pitcher_ratings),
-                "Away SP": get_default_pitcher_rating(away_pitcher_name, pitcher_ratings),
-                "Home SP": get_default_pitcher_rating(home_pitcher_name, pitcher_ratings),
-                "Away BP Fatigue": 0.00,
-                "Home BP Fatigue": 0.00,
-                "Away Lineup": get_default_lineup_adjustment(
-                    away_team_name,
-                    hitter_ratings,
-                    projected_lineups,
-                ),
-                "Home Lineup": get_default_lineup_adjustment(
-                    home_team_name,
-                    hitter_ratings,
-                    projected_lineups,
-                ),
-                "Manual Wx": False,
-                "Temp": default_weather["Temp"],
-                "Wind": default_weather["Wind"],
-                "Away Moneyline": None,
-                "Home Moneyline": None,
-                "Total Line": None,
-                "Over Price": None,
-                "Under Price": None,
-                "Sportsbook": None,
-            }
-        )
-
-    return pd.DataFrame(rows, columns=INPUT_COLUMNS)
+    # Shared data-shaping service used by both UIs.
+    return shared_build_daily_input_table(
+        matchups=matchups,
+        pitcher_ratings=pitcher_ratings,
+        stadium_locations=stadium_locations,
+        hitter_ratings=hitter_ratings,
+        projected_lineups=projected_lineups,
+        team_ratings=team_ratings,
+        data_mode=DATA_MODE,
+    )
 
 
 @st.cache_data(show_spinner=False)
@@ -3377,164 +3221,16 @@ def build_display_dataframe(
     run_dispersion=DEFAULT_RUN_DISPERSION,
     sims=DEFAULT_SIMS,
 ):
-    # This is the main expensive board computation. Caching here prevents
-    # Streamlit reruns from re-simulating every matchup unless one of the
-    # simulation-driving inputs actually changes.
-    display_rows = []
-
-    for _, row in daily_board_inputs.iterrows():
-        away_pitcher_name = row["Away Pitcher"]
-        home_pitcher_name = row["Home Pitcher"]
-
-        away_pitcher_throws = get_pitcher_throws(away_pitcher_name, pitcher_ratings)
-        home_pitcher_throws = get_pitcher_throws(home_pitcher_name, pitcher_ratings)
-
-        row_temperature_f = float(row["Temp"]) if bool(row["Manual Wx"]) else None
-        row_wind_factor = float(row["Wind"]) if bool(row["Manual Wx"]) else None
-
-        matchup_results = simulate_matchup(
-            away_team=row["Away"],
-            home_team=row["Home"],
-            away_starter_rating=float(row["Away SP"]),
-            home_starter_rating=float(row["Home SP"]),
-            away_pitcher_throws=away_pitcher_throws or None,
-            home_pitcher_throws=home_pitcher_throws or None,
-            away_bullpen_fatigue=float(row["Away BP Fatigue"]),
-            home_bullpen_fatigue=float(row["Home BP Fatigue"]),
-            away_lineup_adjustment=float(row["Away Lineup"]),
-            home_lineup_adjustment=float(row["Home Lineup"]),
-            temperature_f=row_temperature_f,
-            wind_factor=row_wind_factor,
-            sims=sims,
-            run_dispersion=run_dispersion,
-            teams=team_ratings,
-        )
-
-        away_win_pct = round(matchup_results["away_win_prob"] * 100, 1)
-        home_win_pct = round(matchup_results["home_win_prob"] * 100, 1)
-        matchup_key = (normalize_team_name(row["Away"]), normalize_team_name(row["Home"]))
-        market_data = (live_odds_market_data or {}).get(matchup_key, {})
-
-        (
-            away_implied_prob,
-            home_implied_prob,
-            away_no_vig_prob,
-            home_no_vig_prob,
-            _vig,
-        ) = calculate_no_vig_probs(
-            row.get("Away Moneyline"),
-            row.get("Home Moneyline"),
-        )
-
-        away_implied_pct = round(away_implied_prob * 100, 1) if away_implied_prob is not None else None
-        home_implied_pct = round(home_implied_prob * 100, 1) if home_implied_prob is not None else None
-        away_no_vig_pct = round(away_no_vig_prob * 100, 1) if away_no_vig_prob is not None else None
-        home_no_vig_pct = round(home_no_vig_prob * 100, 1) if home_no_vig_prob is not None else None
-        hold_pct = round(_vig * 100, 1) if _vig is not None else None
-
-        away_consensus_prob = market_data.get("away_consensus_prob")
-        home_consensus_prob = market_data.get("home_consensus_prob")
-        away_consensus_pct = round(float(away_consensus_prob) * 100, 1) if away_consensus_prob is not None else None
-        home_consensus_pct = round(float(home_consensus_prob) * 100, 1) if home_consensus_prob is not None else None
-
-        consensus_hold_avg = market_data.get("consensus_hold_avg")
-        consensus_hold_pct = round(float(consensus_hold_avg) * 100, 1) if consensus_hold_avg is not None else None
-        consensus_books_used = market_data.get("consensus_books_used")
-        away_fair_ml = market_data.get("away_fair_ml")
-        home_fair_ml = market_data.get("home_fair_ml")
-
-        away_edge_pct = round(away_win_pct - away_consensus_pct, 1) if away_consensus_pct is not None else None
-        home_edge_pct = round(home_win_pct - home_consensus_pct, 1) if home_consensus_pct is not None else None
-
-        away_ev = calculate_expected_value(matchup_results["away_win_prob"], row.get("Away Moneyline"))
-        home_ev = calculate_expected_value(matchup_results["home_win_prob"], row.get("Home Moneyline"))
-        away_ev_pct = round(away_ev * 100, 1) if away_ev is not None else None
-        home_ev_pct = round(home_ev * 100, 1) if home_ev is not None else None
-
-        projected_total = round(matchup_results["away_lambda"] + matchup_results["home_lambda"], 2)
-        total_line = row.get("Total Line")
-        over_prob, under_prob, total_difference = calculate_total_probabilities(projected_total, total_line)
-
-        totals_market = calculate_totals_market_probs(
-            row.get("Over Price"),
-            row.get("Under Price"),
-        )
-        over_market_prob = totals_market["over_market_prob"]
-        under_market_prob = totals_market["under_market_prob"]
-
-        over_edge_pct = (
-            round((over_prob - over_market_prob) * 100, 1)
-            if over_prob is not None and over_market_prob is not None
-            else None
-        )
-        under_edge_pct = (
-            round((under_prob - under_market_prob) * 100, 1)
-            if under_prob is not None and under_market_prob is not None
-            else None
-        )
-
-        over_ev = calculate_expected_value(over_prob, row.get("Over Price")) if over_prob is not None else None
-        under_ev = calculate_expected_value(under_prob, row.get("Under Price")) if under_prob is not None else None
-        over_ev_pct = round(over_ev * 100, 1) if over_ev is not None else None
-        under_ev_pct = round(under_ev * 100, 1) if under_ev is not None else None
-
-        best_total_bet, total_bet_flag, _, _ = calculate_total_bet_signal(
-            over_edge_pct,
-            under_edge_pct,
-            over_ev,
-            under_ev,
-        )
-        best_bet, bet_flag, _, _ = calculate_bet_signal(
-            away_edge_pct,
-            home_edge_pct,
-            away_ev,
-            home_ev,
-        )
-
-        display_row = row.to_dict()
-        display_row["A Hand"] = away_pitcher_throws
-        display_row["H Hand"] = home_pitcher_throws
-        display_row["Away Runs"] = round(matchup_results["away_lambda"], 2)
-        display_row["Home Runs"] = round(matchup_results["home_lambda"], 2)
-        display_row["Away Win"] = away_win_pct
-        display_row["Home Win"] = home_win_pct
-        display_row["Away Implied %"] = away_implied_pct
-        display_row["Home Implied %"] = home_implied_pct
-        display_row["Away No-Vig %"] = away_no_vig_pct
-        display_row["Home No-Vig %"] = home_no_vig_pct
-        display_row["Hold %"] = hold_pct
-        display_row["Away Consensus %"] = away_consensus_pct
-        display_row["Home Consensus %"] = home_consensus_pct
-        display_row["Consensus Hold Avg"] = consensus_hold_pct
-        display_row["Consensus Books Used"] = consensus_books_used
-        display_row["Away Fair ML"] = away_fair_ml
-        display_row["Home Fair ML"] = home_fair_ml
-        display_row["Away Edge %"] = away_edge_pct
-        display_row["Home Edge %"] = home_edge_pct
-        display_row["Away EV"] = away_ev_pct
-        display_row["Home EV"] = home_ev_pct
-        display_row["Projected Total"] = projected_total
-        display_row["Total Diff"] = round(total_difference, 2) if total_difference is not None else None
-        display_row["Over Edge %"] = over_edge_pct
-        display_row["Under Edge %"] = under_edge_pct
-        display_row["Over EV"] = over_ev_pct
-        display_row["Under EV"] = under_ev_pct
-        display_row["Best Total Bet"] = best_total_bet
-        display_row["Total Bet Flag"] = total_bet_flag
-        display_row["Favorite"] = row["Home"] if home_win_pct >= away_win_pct else row["Away"]
-        display_row["Win Edge"] = round(abs(home_win_pct - away_win_pct), 1)
-        if best_bet == "Away":
-            display_row["Best Bet"] = row["Away"]
-        elif best_bet == "Home":
-            display_row["Best Bet"] = row["Home"]
-        else:
-            display_row["Best Bet"] = "Pass"
-        display_row["Bet Flag"] = bet_flag
-        display_row["Park"] = round(matchup_results["park_factor"], 2)
-        display_row["Weather"] = round(matchup_results["weather_multiplier"], 2)
-        display_rows.append(display_row)
-
-    return pd.DataFrame(display_rows, columns=TABLE_COLUMNS)
+    # Streamlit cache wrapper over shared board-shaping logic.
+    return shared_build_display_dataframe(
+        daily_board_inputs=daily_board_inputs,
+        pitcher_ratings=pitcher_ratings,
+        team_ratings=team_ratings,
+        normalize_team_name_fn=normalize_team_name,
+        live_odds_market_data=live_odds_market_data,
+        run_dispersion=run_dispersion,
+        sims=sims,
+    )
 
 
 def get_market_edge_display(row):
@@ -3841,45 +3537,7 @@ def _build_total_candidate(row):
 
 
 def build_top_plays_dataframe(display_df, max_plays=5):
-    candidates = []
-
-    for _, row in display_df.iterrows():
-        side_candidate = _build_side_candidate(row)
-        if side_candidate is not None:
-            candidates.append(side_candidate)
-
-        total_candidate = _build_total_candidate(row)
-        if total_candidate is not None:
-            candidates.append(total_candidate)
-
-    if not candidates:
-        return pd.DataFrame(
-            columns=[
-                "matchup",
-                "bet_type",
-                "pick",
-                "sportsbook",
-                "line",
-                "model_edge",
-                "ev",
-                "flag",
-                "projected_total",
-                "market_total",
-            ]
-        )
-
-    candidates_df = pd.DataFrame(candidates)
-    candidates_df["flag_priority"] = candidates_df["flag"].map(_flag_priority)
-    candidates_df["ev"] = pd.to_numeric(candidates_df["ev"], errors="coerce")
-    candidates_df["model_edge"] = pd.to_numeric(candidates_df["model_edge"], errors="coerce")
-
-    candidates_df = candidates_df.sort_values(
-        by=["flag_priority", "ev", "model_edge"],
-        ascending=[False, False, False],
-        na_position="last",
-    ).head(max_plays)
-
-    return candidates_df.reset_index(drop=True)
+    return shared_build_top_plays_dataframe(display_df, max_plays=max_plays)
 
 
 def build_best_bets_summary(top_plays_df):
@@ -3899,57 +3557,7 @@ def build_best_bets_summary(top_plays_df):
 
 
 def build_summary_metrics(display_df):
-    games_today = len(display_df)
-    if games_today == 0:
-        return {
-            "games_today": 0,
-            "avg_total_runs": "0.00",
-            "strongest_ev": "No games loaded",
-            "strongest_ev_delta": "",
-            "playable_bets": 0,
-            "playable_total_bets": 0,
-        }
-
-    avg_total_runs = (display_df["Away Runs"] + display_df["Home Runs"]).mean()
-    betting_df = display_df[
-        ["Away", "Home", "Away Edge %", "Home Edge %", "Away EV", "Home EV", "Best Bet", "Bet Flag"]
-    ].copy()
-    betting_df["Away Edge %"] = pd.to_numeric(betting_df["Away Edge %"], errors="coerce")
-    betting_df["Home Edge %"] = pd.to_numeric(betting_df["Home Edge %"], errors="coerce")
-    betting_df["Away EV"] = pd.to_numeric(betting_df["Away EV"], errors="coerce")
-    betting_df["Home EV"] = pd.to_numeric(betting_df["Home EV"], errors="coerce")
-
-    strongest_ev_text = "No positive EV spots"
-    strongest_ev_delta = ""
-    positive_away = betting_df["Away EV"].where(betting_df["Away EV"] > 0)
-    positive_home = betting_df["Home EV"].where(betting_df["Home EV"] > 0)
-
-    if not pd.isna(positive_away).all() or not pd.isna(positive_home).all():
-        away_best_idx = positive_away.idxmax() if not pd.isna(positive_away).all() else None
-        home_best_idx = positive_home.idxmax() if not pd.isna(positive_home).all() else None
-        away_best_ev = positive_away.loc[away_best_idx] if away_best_idx is not None else None
-        home_best_ev = positive_home.loc[home_best_idx] if home_best_idx is not None else None
-
-        if away_best_ev is not None and not pd.isna(away_best_ev) and (
-            home_best_ev is None or pd.isna(home_best_ev) or away_best_ev >= home_best_ev
-        ):
-            strongest_ev_text = f"{betting_df.loc[away_best_idx, 'Away']} away"
-            strongest_ev_delta = f"{away_best_ev:.1f}% EV"
-        elif home_best_ev is not None and not pd.isna(home_best_ev):
-            strongest_ev_text = f"{betting_df.loc[home_best_idx, 'Home']} home"
-            strongest_ev_delta = f"{home_best_ev:.1f}% EV"
-
-    playable_bets = int(display_df["Bet Flag"].isin(["Lean", "Strong Bet"]).sum())
-    playable_total_bets = int(display_df["Total Bet Flag"].isin(["Lean", "Strong Bet"]).sum())
-
-    return {
-        "games_today": games_today,
-        "avg_total_runs": f"{avg_total_runs:.2f}",
-        "strongest_ev": strongest_ev_text,
-        "strongest_ev_delta": strongest_ev_delta,
-        "playable_bets": playable_bets,
-        "playable_total_bets": playable_total_bets,
-    }
+    return shared_build_summary_metrics(display_df)
 
 
 def _build_top_play_strip_item(label, tone, title, edge_text, supporting_text):
@@ -4984,23 +4592,19 @@ def render_action_bar(download_csv, display_df, top_plays_df, run_dispersion):
     with action_row_1_col_3:
         if st.button("Load Live Odds", width="stretch"):
             try:
-                odds_map = fetch_live_odds()
-                updated_board, matched_games = apply_live_odds_to_board(
-                    st.session_state["daily_board_inputs"],
-                    odds_map,
-                )
-                st.session_state["daily_board_inputs"] = updated_board
-                st.session_state["live_odds_market_data"] = odds_map
+                raw_odds_payload = fetch_live_odds()
+                st.session_state["live_odds_api_debug_payload"] = raw_odds_payload
+                st.session_state["live_odds_market_data"] = {}
                 set_board_timestamp("odds_last_updated")
-                if matched_games > 0:
+                if isinstance(raw_odds_payload, list) and len(raw_odds_payload) > 0:
                     st.session_state["odds_status"] = (
                         "success",
-                        f"Loaded live odds for {matched_games} matchup(s).",
+                        f"Fetched raw Odds API payload with {len(raw_odds_payload)} game(s). Matching is temporarily bypassed for debugging.",
                     )
                 else:
                     st.session_state["odds_status"] = (
                         "warning",
-                        "No live odds matched the current board.",
+                        "Odds API debug fetch returned no games. Matching is temporarily bypassed.",
                     )
                 st.rerun()
             except Exception as exc:
@@ -5204,8 +4808,9 @@ render_header()
 tabs = st.tabs([
     "Daily Board",
     "Drivers",
-    "Standings",
+    "Season Projections",
     "Performance",
+    "About",
 ])
 
 if "run_dispersion" not in st.session_state:
@@ -5285,6 +4890,9 @@ with tabs[3]:
     with st.expander("Workflow Tools", expanded=False):
         render_results_grading(GRADED_RESULTS_PATH, HISTORY_DIR)
         render_history_viewer(HISTORY_DIR)
+
+with tabs[4]:
+    render_settings_about()
 
 edited_inputs = edited_display_df[INPUT_COLUMNS].copy()
 

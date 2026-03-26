@@ -4,8 +4,9 @@ This lives at the project root so model modules can import paths without
 accidentally pulling in the Streamlit app package and creating circular imports.
 """
 
-import os
 from pathlib import Path
+
+from app.runtime_env import resolve_database_path
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -14,7 +15,7 @@ RAW_DATA_DIR = DATA_DIR / "raw"
 PROCESSED_DATA_DIR = DATA_DIR / "processed"
 MODEL_DIR = DATA_DIR / "models"
 DEFAULT_DB_PATH = BASE_DIR / "db" / "mlb_betting_model.sqlite"
-DB_PATH = Path(os.getenv("MLB_MODEL_DB_PATH", str(DEFAULT_DB_PATH))).expanduser().resolve()
+DB_PATH = resolve_database_path()
 DB_DIR = DB_PATH.parent
 
 # Shared simulation settings

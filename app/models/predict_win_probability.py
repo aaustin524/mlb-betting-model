@@ -14,9 +14,11 @@ import pandas as pd
 from project_config import DB_PATH
 from app.db.schema import initialize_database
 from app.models.train_win_probability import BASE_FEATURE_COLUMNS, MODEL_PATH
+from app.utils.probabilities import american_to_implied_prob, no_vig_probs
 
 LOGGER = logging.getLogger(__name__)
 MODEL_VERSION = "v1_logistic_regression"
+RECOMMENDED_BET_EDGE_THRESHOLD = 0.03
 
 
 def configure_logging() -> None:
@@ -56,6 +58,80 @@ def load_prediction_data(connection: sqlite3.Connection) -> pd.DataFrame:
     return dataset
 
 
+def load_market_odds_data(connection: sqlite3.Connection) -> pd.DataFrame:
+    """Load the latest odds snapshot for each game and sportsbook."""
+    query = """
+        SELECT
+            game_id,
+            sportsbook_name,
+            snapshot_time,
+            home_moneyline,
+            away_moneyline
+        FROM odds_snapshots
+        ORDER BY game_id, sportsbook_name, snapshot_time DESC
+    """
+    dataset = pd.read_sql_query(query, connection)
+    if dataset.empty:
+        LOGGER.info("No odds snapshots were found. Market comparison fields will stay empty.")
+        return dataset
+
+    latest_snapshots = dataset.drop_duplicates(
+        subset=["game_id", "sportsbook_name"],
+        keep="first",
+    ).reset_index(drop=True)
+    LOGGER.info(
+        "Loaded %s latest sportsbook odds snapshots across %s games",
+        len(latest_snapshots),
+        latest_snapshots["game_id"].nunique(),
+    )
+    return latest_snapshots
+
+
+def build_market_comparison_lookup(market_odds_df: pd.DataFrame) -> dict[int, dict[str, float | None]]:
+    """Build a consensus market-probability snapshot for each game."""
+    if market_odds_df.empty:
+        return {}
+
+    market_lookup: dict[int, dict[str, float | None]] = {}
+
+    for game_id, game_rows in market_odds_df.groupby("game_id"):
+        home_raw_probs: list[float] = []
+        away_raw_probs: list[float] = []
+        home_no_vig_probs: list[float] = []
+        away_no_vig_probs: list[float] = []
+
+        for _, row in game_rows.iterrows():
+            home_raw = american_to_implied_prob(row.get("home_moneyline"))
+            away_raw = american_to_implied_prob(row.get("away_moneyline"))
+            home_no_vig, away_no_vig = no_vig_probs(home_raw, away_raw)
+
+            if home_raw is not None:
+                home_raw_probs.append(home_raw)
+            if away_raw is not None:
+                away_raw_probs.append(away_raw)
+            if home_no_vig is not None:
+                home_no_vig_probs.append(home_no_vig)
+            if away_no_vig is not None:
+                away_no_vig_probs.append(away_no_vig)
+
+        market_lookup[int(game_id)] = {
+            "market_home_implied_prob_raw": float(sum(home_raw_probs) / len(home_raw_probs))
+            if home_raw_probs
+            else None,
+            "market_away_implied_prob_raw": float(sum(away_raw_probs) / len(away_raw_probs))
+            if away_raw_probs
+            else None,
+            "market_home_implied_prob_no_vig": float(sum(home_no_vig_probs) / len(home_no_vig_probs))
+            if home_no_vig_probs
+            else None,
+            "market_away_implied_prob_no_vig": float(sum(away_no_vig_probs) / len(away_no_vig_probs))
+            if away_no_vig_probs
+            else None,
+        }
+
+    return market_lookup
+
+
 def prepare_prediction_frame(dataset: pd.DataFrame, feature_columns: list[str]) -> pd.DataFrame:
     """Keep the selected feature columns and the game id used for saving predictions."""
     required_columns = ["game_id"] + feature_columns
@@ -77,6 +153,7 @@ def build_prediction_rows(
     prediction_frame: pd.DataFrame,
     model: object,
     feature_columns: list[str],
+    market_lookup: dict[int, dict[str, float | None]],
 ) -> list[dict[str, object]]:
     """Generate probability predictions for each game row."""
     if prediction_frame.empty:
@@ -87,14 +164,53 @@ def build_prediction_rows(
     prediction_time = datetime.now(timezone.utc).isoformat()
 
     prediction_rows: list[dict[str, object]] = []
-    for game_id, home_win_prob in zip(prediction_frame["game_id"], home_win_probs, strict=False):
+    for game_id, home_win_prob in zip(prediction_frame["game_id"], home_win_probs):
+        away_win_prob = float(1.0 - home_win_prob)
+        market_fields = market_lookup.get(int(game_id), {})
+        market_home_no_vig = market_fields.get("market_home_implied_prob_no_vig")
+        market_away_no_vig = market_fields.get("market_away_implied_prob_no_vig")
+
+        edge_home = (
+            float(home_win_prob - market_home_no_vig)
+            if market_home_no_vig is not None
+            else None
+        )
+        edge_away = (
+            float(away_win_prob - market_away_no_vig)
+            if market_away_no_vig is not None
+            else None
+        )
+
+        recommended_side: str | None = None
+        recommended_bet = 0
+        positive_edges = {
+            "home": edge_home,
+            "away": edge_away,
+        }
+        best_side = max(
+            positive_edges,
+            key=lambda side: positive_edges[side] if positive_edges[side] is not None else float("-inf"),
+        )
+        best_edge = positive_edges[best_side]
+        if best_edge is not None and best_edge >= RECOMMENDED_BET_EDGE_THRESHOLD:
+            recommended_side = best_side
+            recommended_bet = 1
+
         prediction_rows.append(
             {
                 "game_id": int(game_id),
                 "model_version": MODEL_VERSION,
                 "prediction_time": prediction_time,
                 "home_win_prob": float(home_win_prob),
-                "away_win_prob": float(1.0 - home_win_prob),
+                "away_win_prob": away_win_prob,
+                "market_home_implied_prob_raw": market_fields.get("market_home_implied_prob_raw"),
+                "market_away_implied_prob_raw": market_fields.get("market_away_implied_prob_raw"),
+                "market_home_implied_prob_no_vig": market_home_no_vig,
+                "market_away_implied_prob_no_vig": market_away_no_vig,
+                "edge_home": edge_home,
+                "edge_away": edge_away,
+                "recommended_side": recommended_side,
+                "recommended_bet": recommended_bet,
             }
         )
 
@@ -121,14 +237,30 @@ def replace_predictions(connection: sqlite3.Connection, prediction_rows: list[di
             model_version,
             prediction_time,
             home_win_prob,
-            away_win_prob
+            away_win_prob,
+            market_home_implied_prob_raw,
+            market_away_implied_prob_raw,
+            market_home_implied_prob_no_vig,
+            market_away_implied_prob_no_vig,
+            edge_home,
+            edge_away,
+            recommended_side,
+            recommended_bet
         )
         VALUES (
             :game_id,
             :model_version,
             :prediction_time,
             :home_win_prob,
-            :away_win_prob
+            :away_win_prob,
+            :market_home_implied_prob_raw,
+            :market_away_implied_prob_raw,
+            :market_home_implied_prob_no_vig,
+            :market_away_implied_prob_no_vig,
+            :edge_home,
+            :edge_away,
+            :recommended_side,
+            :recommended_bet
         )
         """,
         prediction_rows,
@@ -146,13 +278,20 @@ def predict_win_probabilities() -> int:
 
     with sqlite3.connect(DB_PATH) as connection:
         dataset = load_prediction_data(connection)
+        market_odds_df = load_market_odds_data(connection)
+        market_lookup = build_market_comparison_lookup(market_odds_df)
         prediction_frame = prepare_prediction_frame(dataset, feature_columns)
 
         if prediction_frame.empty:
             LOGGER.warning("No model_features rows were found to score.")
             return 0
 
-        prediction_rows = build_prediction_rows(prediction_frame, model, feature_columns)
+        prediction_rows = build_prediction_rows(
+            prediction_frame,
+            model,
+            feature_columns,
+            market_lookup,
+        )
         saved_count = replace_predictions(connection, prediction_rows)
 
     LOGGER.info("Saved %s prediction rows to the predictions table", saved_count)

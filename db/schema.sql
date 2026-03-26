@@ -120,6 +120,9 @@ CREATE TABLE IF NOT EXISTS predictions (
     FOREIGN KEY (game_id) REFERENCES games (game_id)
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS idx_predictions_game_model
+ON predictions (game_id, model_version);
+
 CREATE TABLE IF NOT EXISTS tracked_bets (
     tracking_id INTEGER PRIMARY KEY,
     tracking_key TEXT NOT NULL UNIQUE,
@@ -173,3 +176,60 @@ CREATE TABLE IF NOT EXISTS tracked_bets (
     updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (game_id) REFERENCES games (game_id)
 );
+
+CREATE TABLE IF NOT EXISTS performance_bets (
+    performance_bet_id INTEGER PRIMARY KEY,
+    tracking_key TEXT NOT NULL UNIQUE,
+    snapshot_group_id TEXT NOT NULL,
+    snapshot_timestamp TEXT NOT NULL,
+    snapshot_note TEXT,
+    game_date TEXT,
+    game_id INTEGER,
+    game_match_method TEXT,
+    away_team TEXT NOT NULL,
+    home_team TEXT NOT NULL,
+    market_type TEXT NOT NULL,
+    event_id TEXT,
+    bookmaker_key TEXT,
+    sport_key TEXT,
+    commence_time TEXT,
+    sportsbook TEXT,
+    pick TEXT NOT NULL,
+    model_win_probability REAL,
+    projected_total REAL,
+    locked_line REAL,
+    locked_odds INTEGER,
+    locked_implied_probability REAL,
+    market_implied_probability REAL,
+    market_no_vig_probability REAL,
+    edge REAL,
+    ev REAL,
+    best_bet_flag TEXT,
+    signal_strength TEXT,
+    is_actionable INTEGER NOT NULL DEFAULT 0,
+    tracking_mode TEXT NOT NULL DEFAULT 'full_visible_board',
+    edge_bucket TEXT,
+    source TEXT NOT NULL DEFAULT 'manual',
+    closing_line REAL,
+    closing_odds INTEGER,
+    closing_implied_probability REAL,
+    closing_captured_at TEXT,
+    clv_value REAL,
+    clv_direction TEXT,
+    close_status TEXT,
+    result TEXT,
+    units REAL,
+    clv REAL,
+    final_away_runs REAL,
+    final_home_runs REAL,
+    graded_at TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (game_id) REFERENCES games (game_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_performance_bets_game_date
+ON performance_bets (game_date, snapshot_timestamp);
+
+CREATE INDEX IF NOT EXISTS idx_performance_bets_market_type
+ON performance_bets (market_type, signal_strength);

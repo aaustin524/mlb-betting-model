@@ -12,6 +12,14 @@ This project is intentionally probability-first:
 - compare model probability vs. market probability
 - flag possible value with `edge_home` and `edge_away`
 
+## Reflex Cloud Deployment
+
+The Reflex app can be deployed on Reflex Cloud.
+
+Deployment checklist, required environment variables, and smoke-test steps live in:
+
+- [`DEPLOY.md`](/Users/aaustin2/mlb-betting-model/DEPLOY.md)
+
 ## Odds Ingestion
 
 The first odds ingestion step loads MLB moneyline odds into the `odds_snapshots` table.
@@ -67,6 +75,17 @@ These helpers convert American odds into implied probabilities and remove vig by
 Phase 6 adds the first prediction pipeline.
 
 This phase loads the trained home win model, scores `model_features`, and saves `home_win_prob` and `away_win_prob` into the `predictions` table.
+
+The saved prediction rows now also store the market comparison fields required for the project:
+
+- `market_home_implied_prob_raw`
+- `market_away_implied_prob_raw`
+- `market_home_implied_prob_no_vig`
+- `market_away_implied_prob_no_vig`
+- `edge_home`
+- `edge_away`
+- `recommended_side`
+- `recommended_bet`
 
 ## Project Structure
 
@@ -190,8 +209,32 @@ Each saved prediction includes:
 - `prediction_time`
 - `home_win_prob`
 - `away_win_prob`
+- `market_home_implied_prob_raw`
+- `market_away_implied_prob_raw`
+- `market_home_implied_prob_no_vig`
+- `market_away_implied_prob_no_vig`
+- `edge_home`
+- `edge_away`
+- `recommended_side`
+- `recommended_bet`
 
 The script replaces older rows for the same `game_id` and `model_version` so reruns stay clean.
+
+Market comparison fields are built from the latest available odds snapshot for each sportsbook, then averaged into a simple consensus by game.
+
+## Backtesting
+
+The repo now includes a simple probability-first backtest module:
+
+```powershell
+python -m app.backtest.run_backtest
+```
+
+Backtest rules:
+
+- compare model probabilities to no-vig market implied probabilities
+- only place a simulated bet when the selected side has `edge >= 0.03`
+- use a flat 1-unit stake per qualifying bet
 
 ## Render Deployment
 
@@ -229,3 +272,68 @@ Notes:
 - The local file [`.streamlit/secrets.toml`](/Users/aaust/OneDrive/Documents/GitHub/mlb-betting-model/.streamlit/secrets.toml) should not be relied on in Render. Use Render environment variables instead.
 - For local development, copy [`.streamlit/secrets.toml.example`](/Users/aaust/OneDrive/Documents/GitHub/mlb-betting-model/.streamlit/secrets.toml.example) to [`.streamlit/secrets.toml`](/Users/aaust/OneDrive/Documents/GitHub/mlb-betting-model/.streamlit/secrets.toml) and add your key there.
 - If the current `ODDS_API_KEY` in local secrets was ever committed or shared, rotate it before deploying.
+
+## Reflex Front End
+
+The repo now includes a separate Reflex app that lives alongside the existing Streamlit app.
+
+The Streamlit app is still the current entrypoint:
+
+```bash
+streamlit run app/app.py
+```
+
+The new Reflex app is isolated under `reflex_app/` and reuses the existing model and service modules instead of replacing them.
+
+Install Reflex locally:
+
+```bash
+pip install -r requirements.txt
+```
+
+Run the Reflex app from the repo root:
+
+```bash
+reflex run
+```
+
+Useful first-run notes:
+
+- Reflex reads [`rxconfig.py`](/Users/aaustin2/mlb-betting-model/rxconfig.py) at the project root.
+- The main Reflex app object lives in [`reflex_app/reflex_app.py`](/Users/aaustin2/mlb-betting-model/reflex_app/reflex_app.py).
+- The current local database at [`db/mlb_betting_model.sqlite`](/Users/aaustin2/mlb-betting-model/db/mlb_betting_model.sqlite) may be empty, so the Reflex board falls back to the CSV matchup inputs when odds or prediction rows are missing.
+
+Files added for the Reflex UI:
+
+- [`rxconfig.py`](/Users/aaustin2/mlb-betting-model/rxconfig.py)
+- [`reflex_app/reflex_app.py`](/Users/aaustin2/mlb-betting-model/reflex_app/reflex_app.py)
+- [`reflex_app/styles.py`](/Users/aaustin2/mlb-betting-model/reflex_app/styles.py)
+- [`reflex_app/pages/dashboard.py`](/Users/aaustin2/mlb-betting-model/reflex_app/pages/dashboard.py)
+- [`reflex_app/pages/daily_matchups.py`](/Users/aaustin2/mlb-betting-model/reflex_app/pages/daily_matchups.py)
+- [`reflex_app/pages/drivers.py`](/Users/aaustin2/mlb-betting-model/reflex_app/pages/drivers.py)
+- [`reflex_app/pages/projections.py`](/Users/aaustin2/mlb-betting-model/reflex_app/pages/projections.py)
+- [`reflex_app/pages/settings.py`](/Users/aaustin2/mlb-betting-model/reflex_app/pages/settings.py)
+- [`reflex_app/components/header.py`](/Users/aaustin2/mlb-betting-model/reflex_app/components/header.py)
+- [`reflex_app/components/cards.py`](/Users/aaustin2/mlb-betting-model/reflex_app/components/cards.py)
+- [`reflex_app/components/filters.py`](/Users/aaustin2/mlb-betting-model/reflex_app/components/filters.py)
+- [`reflex_app/components/tables.py`](/Users/aaustin2/mlb-betting-model/reflex_app/components/tables.py)
+- [`reflex_app/components/shell.py`](/Users/aaustin2/mlb-betting-model/reflex_app/components/shell.py)
+- [`reflex_app/services/legacy_adapter.py`](/Users/aaustin2/mlb-betting-model/reflex_app/services/legacy_adapter.py)
+- [`reflex_app/services/app_data.py`](/Users/aaustin2/mlb-betting-model/reflex_app/services/app_data.py)
+- [`reflex_app/state/app_state.py`](/Users/aaustin2/mlb-betting-model/reflex_app/state/app_state.py)
+
+Existing files reused by the Reflex app:
+
+- [`app/app.py`](/Users/aaustin2/mlb-betting-model/app/app.py) as the reference implementation for board calculations and thresholds
+- [`model/game_engine.py`](/Users/aaustin2/mlb-betting-model/model/game_engine.py) for matchup simulation
+- [`model/simulate_games.py`](/Users/aaustin2/mlb-betting-model/model/simulate_games.py) for win-probability simulation
+- [`model/schedule_loader.py`](/Users/aaustin2/mlb-betting-model/model/schedule_loader.py) for daily matchups
+- [`model/team_loader.py`](/Users/aaustin2/mlb-betting-model/model/team_loader.py) for team ratings
+- [`model/lineup_strength.py`](/Users/aaustin2/mlb-betting-model/model/lineup_strength.py) for lineup adjustments
+- [`app/utils/season_monitor.py`](/Users/aaustin2/mlb-betting-model/app/utils/season_monitor.py) for standings, drivers, and projections
+- [`app/utils/probabilities.py`](/Users/aaustin2/mlb-betting-model/app/utils/probabilities.py) for implied probability and no-vig math
+- [`app/db/connection.py`](/Users/aaustin2/mlb-betting-model/app/db/connection.py) for SQLite access
+
+Requirements updated:
+
+- [`requirements.txt`](/Users/aaustin2/mlb-betting-model/requirements.txt) now includes `reflex`
