@@ -99,6 +99,7 @@ mlb-betting-model/
       build_game_features.py         # builds game-level features from past games
     ingest/                          # data collection and loading code
       historical_games.py            # loads historical MLB games from the Stats API
+      mlb_stats.py                   # loads team and starter daily stats into SQLite
       odds_feed.py                   # loads MLB moneyline odds into odds_snapshots
     models/                          # model training and prediction code
       train_win_probability.py       # trains the logistic regression home win model
@@ -127,10 +128,11 @@ mlb-betting-model/
 3. Copy `.env.example` to `.env`.
 4. Initialize the database.
 5. Load historical games.
-6. Load moneyline odds.
-7. Build game features.
-8. Train the win probability model.
-9. Generate predictions.
+6. Load MLB team and pitcher stats.
+7. Load moneyline odds.
+8. Build game features.
+9. Train the win probability model.
+10. Generate predictions.
 
 Example commands:
 
@@ -142,6 +144,7 @@ Copy-Item .env.example .env
 $env:ODDS_API_KEY="your_api_key_here"
 python -m app.main init-db
 python -m app.ingest.historical_games --start-date 2024-03-28 --end-date 2024-09-30
+python -m app.ingest.mlb_stats --start-date 2024-03-28 --end-date 2024-09-30
 python -m app.ingest.odds_feed --start-date 2024-03-28 --end-date 2024-09-30
 python -m app.features.build_game_features
 python -m app.models.train_win_probability
@@ -168,9 +171,28 @@ What the script does:
 - fetches real MLB schedule data from the Stats API
 - keeps only completed games
 - normalizes fields into the `games` table shape
-- upserts team rows first so foreign keys stay valid
-- upserts probable pitcher rows when the API provides them
+- upserts placeholder team rows first so foreign keys stay valid
 - upserts game rows by `game_id` to prevent duplicates on reruns
+
+## MLB Stat Ingestion
+
+The stat ingestion step reads each completed game from the MLB Stats API live feed and fills the core supporting tables used by feature engineering and verification.
+
+Run it like this:
+
+```powershell
+python -m app.ingest.mlb_stats --start-date 2024-03-28 --end-date 2024-09-30
+```
+
+What the script does:
+
+- updates `teams` with real MLB team names and abbreviations
+- loads actual starter ids into `starting_pitchers`
+- updates `games.home_starting_pitcher_id` and `games.away_starting_pitcher_id`
+- saves per-day rows into `team_daily_stats`
+- saves starter box-score rows into `pitcher_daily_stats`
+- calculates a simple per-day FIP estimate from the starter box score
+- uses upserts so reruns stay clean
 
 ## Model Training
 

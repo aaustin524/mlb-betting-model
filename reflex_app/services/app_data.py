@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from functools import lru_cache
+import sqlite3
 
 from app.utils.season_monitor import (
     build_bullpen_monitor,
@@ -15,6 +16,7 @@ from app.utils.season_monitor import (
     build_today_impact,
     simulate_playoff_odds,
 )
+from model.weather_api import get_weather_for_team
 from project_config import DB_PATH, DEFAULT_RUN_DISPERSION, DEFAULT_SIMS, MODEL_DIR
 
 from .legacy_adapter import (
@@ -28,6 +30,7 @@ from .legacy_adapter import (
     get_selected_slate_date,
     load_core_inputs,
     read_prediction_rows,
+    read_upcoming_prediction_rows,
 )
 from .performance_tracker import (
     build_performance_summary,
@@ -89,6 +92,65 @@ def _format_refresh_timestamp(value: object) -> str:
     return parsed.astimezone().strftime("%b %d, %I:%M %p")
 
 
+def _read_table_count(connection: sqlite3.Connection, table_name: str) -> int:
+    """Return a simple row count for one SQLite table."""
+    return int(connection.execute(f"SELECT COUNT(*) FROM {table_name}").fetchone()[0])
+
+
+def build_data_health_rows(inputs: dict[str, object]) -> list[dict[str, str]]:
+    """Build a compact data health summary for the Settings page."""
+    counts = {
+        "games": 0,
+        "teams": 0,
+        "starting_pitchers": 0,
+        "team_daily_stats": 0,
+        "pitcher_daily_stats": 0,
+        "model_features": 0,
+        "predictions": 0,
+    }
+    if DB_PATH.exists():
+        with sqlite3.connect(DB_PATH) as connection:
+            for table_name in counts:
+                counts[table_name] = _read_table_count(connection, table_name)
+
+    weather_team = ""
+    weather_source = "Unavailable"
+    weather_temp = "-"
+    matchups = inputs.get("matchups")
+    stadium_locations = inputs.get("stadium_locations")
+    if matchups is not None and stadium_locations is not None and not matchups.empty:
+        weather_team = str(matchups.iloc[0].get("home_team", "")).strip()
+        if weather_team:
+            weather_snapshot = get_weather_for_team(
+                home_team=weather_team,
+                stadium_df=stadium_locations,
+                data_mode="live",
+            )
+            weather_source = str(weather_snapshot.get("weather_source", "Unavailable"))
+            temperature_value = weather_snapshot.get("temperature_f")
+            weather_temp = "-" if temperature_value in (None, "") else str(temperature_value)
+
+    stats_ready = counts["team_daily_stats"] > 0 or counts["pitcher_daily_stats"] > 0
+    features_ready = counts["model_features"] > 0
+    predictions_ready = counts["predictions"] > 0
+
+    return [
+        {"Item": "Games Loaded", "Value": str(counts["games"])},
+        {"Item": "Teams Loaded", "Value": str(counts["teams"])},
+        {"Item": "Starting Pitchers Loaded", "Value": str(counts["starting_pitchers"])},
+        {"Item": "Team Stats Rows", "Value": str(counts["team_daily_stats"])},
+        {"Item": "Pitcher Stats Rows", "Value": str(counts["pitcher_daily_stats"])},
+        {"Item": "Feature Rows", "Value": str(counts["model_features"])},
+        {"Item": "Prediction Rows", "Value": str(counts["predictions"])},
+        {"Item": "MLB Stats Status", "Value": "Loaded" if stats_ready else "Missing"},
+        {"Item": "Feature Pipeline Status", "Value": "Ready" if features_ready else "Waiting"},
+        {"Item": "Prediction Pipeline Status", "Value": "Ready" if predictions_ready else "Waiting"},
+        {"Item": "Weather Probe Team", "Value": weather_team or "No slate loaded"},
+        {"Item": "Weather Probe Source", "Value": weather_source},
+        {"Item": "Weather Probe Temp", "Value": weather_temp},
+    ]
+
+
 @lru_cache(maxsize=2)
 def build_app_payload(force_live_odds: bool = False) -> dict[str, object]:
     inputs = load_core_inputs()
@@ -112,7 +174,9 @@ def build_app_payload(force_live_odds: bool = False) -> dict[str, object]:
     current_standings_df = build_current_division_standings(inputs["team_ratings"])
     playoff_odds_df = simulate_playoff_odds(inputs["team_ratings"])
     prediction_rows = read_prediction_rows(limit=12)
+    upcoming_prediction_rows = read_upcoming_prediction_rows(limit=20)
     performance_payload = build_performance_payload()
+    data_health_rows = build_data_health_rows(inputs)
 
     return {
         "summary_cards": _stringify_records(summary_cards),
@@ -130,10 +194,11 @@ def build_app_payload(force_live_odds: bool = False) -> dict[str, object]:
         },
         "today_impact_cards": _stringify_records(today_impact_cards),
         "projection_tables": {
-            "projected": _stringify_records(_table_records(projected_df, limit=15)),
-            "current": _stringify_records(_table_records(current_standings_df, limit=15)),
-            "playoff": _stringify_records(_table_records(playoff_odds_df, limit=15)),
+            "projected": _stringify_records(_table_records(projected_df)),
+            "current": _stringify_records(_table_records(current_standings_df)),
+            "playoff": _stringify_records(_table_records(playoff_odds_df)),
             "predictions": _stringify_records(prediction_rows),
+            "upcoming_predictions": _stringify_records(upcoming_prediction_rows),
         },
         "settings_tables": {
             "runtime": [
@@ -146,6 +211,7 @@ def build_app_payload(force_live_odds: bool = False) -> dict[str, object]:
                 {"Item": "Odds Last Refresh", "Value": _format_refresh_timestamp(odds_status.get("last_refreshed_at"))},
                 {"Item": "Odds Auto Refresh", "Value": "Enabled" if odds_status.get("auto_refresh_enabled", True) else "Manual only"},
             ],
+            "data_health": data_health_rows,
             "streamlit_entrypoints": [
                 {"Category": "Streamlit Entrypoint", "Path": "app/app.py"},
                 {"Category": "Streamlit Entrypoint", "Path": "launch_streamlit.bat"},

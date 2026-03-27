@@ -51,6 +51,9 @@ CREATE TABLE IF NOT EXISTS team_daily_stats (
     FOREIGN KEY (team_id) REFERENCES teams (team_id)
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS idx_team_daily_stats_team_date
+ON team_daily_stats (team_id, game_date);
+
 CREATE TABLE IF NOT EXISTS pitcher_daily_stats (
     stat_id INTEGER PRIMARY KEY,
     pitcher_id INTEGER NOT NULL,
@@ -62,6 +65,9 @@ CREATE TABLE IF NOT EXISTS pitcher_daily_stats (
     fip REAL,
     FOREIGN KEY (pitcher_id) REFERENCES starting_pitchers (pitcher_id)
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_pitcher_daily_stats_pitcher_date
+ON pitcher_daily_stats (pitcher_id, game_date);
 
 CREATE TABLE IF NOT EXISTS odds_snapshots (
     odds_id INTEGER PRIMARY KEY,

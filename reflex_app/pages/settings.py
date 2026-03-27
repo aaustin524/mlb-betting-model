@@ -132,6 +132,52 @@ def settings_page() -> rx.Component:
                         width="100%",
                     ),
                 ),
+                dashboard_surface_card(
+                    dashboard_section_header(
+                        "Data Health",
+                        "A quick verification panel for whether MLB data, engineered features, predictions, and weather inputs are actually making it into the app.",
+                        "Verification",
+                    ),
+                    rx.grid(
+                        _about_metric_card(
+                            "Games Loaded",
+                            AppState.data_games_loaded,
+                            "Completed game rows currently saved in SQLite.",
+                        ),
+                        _about_metric_card(
+                            "MLB Stats",
+                            AppState.data_stat_status,
+                            "Confirms whether daily team or pitcher stat tables contain real rows instead of placeholders.",
+                        ),
+                        _about_metric_card(
+                            "Feature Pipeline",
+                            AppState.data_feature_status,
+                            "Shows whether engineered game rows have been built and saved into model_features.",
+                        ),
+                        _about_metric_card(
+                            "Weather Probe",
+                            AppState.data_weather_status,
+                            "Runs one live weather source check against the current slate so you can tell whether weather is live or falling back.",
+                        ),
+                        columns=rx.breakpoints(initial="1", md="2", xl="4"),
+                        spacing="4",
+                        width="100%",
+                    ),
+                    rx.grid(
+                        rx.foreach(
+                            AppState.data_health_notes,
+                            lambda item: _about_info_card(
+                                "Pipeline Detail",
+                                item["label"],
+                                item["helper"],
+                                [("Current Value", item["value"])],
+                            ),
+                        ),
+                        columns=rx.breakpoints(initial="1", md="2", xl="3"),
+                        spacing="4",
+                        width="100%",
+                    ),
+                ),
                 rx.grid(
                     _about_info_card(
                         "Core Components",
