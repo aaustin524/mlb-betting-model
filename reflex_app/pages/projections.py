@@ -61,12 +61,6 @@ def projections_page() -> rx.Component:
                         width="100%",
                     ),
                 ),
-                light_table(
-                    "Projected Standings",
-                    AppState.projected_standings_view,
-                    ["Rank", "Team", "Wins", "Win %"],
-                    "Top-10 projection board designed for a quick executive read instead of a dense spreadsheet.",
-                ),
                 dashboard_surface_card(
                     dashboard_section_header(
                         "Division Standings",
