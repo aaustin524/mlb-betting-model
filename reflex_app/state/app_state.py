@@ -50,9 +50,11 @@ def _initial_payload() -> dict[str, object]:
                 "current": [],
                 "playoff": [],
                 "predictions": [],
+                "upcoming_predictions": [],
             },
             "settings_tables": {
                 "runtime": [],
+                "data_health": [],
                 "streamlit_entrypoints": [],
                 "reused_modules": [],
             },
@@ -334,10 +336,12 @@ class AppState(rx.State):
     current_rows: list[dict[str, str]] = INITIAL_PAYLOAD["projection_tables"]["current"]
     playoff_rows: list[dict[str, str]] = INITIAL_PAYLOAD["projection_tables"]["playoff"]
     prediction_rows: list[dict[str, str]] = INITIAL_PAYLOAD["projection_tables"]["predictions"]
+    upcoming_prediction_rows: list[dict[str, str]] = INITIAL_PAYLOAD["projection_tables"]["upcoming_predictions"]
     performance_summary_cards: list[dict[str, str]] = INITIAL_PAYLOAD["performance"]["summary_cards"]
     performance_rows: list[dict[str, str]] = INITIAL_PAYLOAD["performance"]["rows"]
     performance_columns: list[str] = INITIAL_PAYLOAD["performance"]["columns"]
     runtime_rows: list[dict[str, str]] = INITIAL_PAYLOAD["settings_tables"]["runtime"]
+    data_health_rows: list[dict[str, str]] = INITIAL_PAYLOAD["settings_tables"]["data_health"]
     streamlit_entrypoint_rows: list[dict[str, str]] = INITIAL_PAYLOAD["settings_tables"]["streamlit_entrypoints"]
     reused_module_rows: list[dict[str, str]] = INITIAL_PAYLOAD["settings_tables"]["reused_modules"]
     odds_status: dict[str, str] = INITIAL_PAYLOAD["odds_status"]
@@ -363,10 +367,12 @@ class AppState(rx.State):
         self.current_rows = payload["projection_tables"]["current"]
         self.playoff_rows = payload["projection_tables"]["playoff"]
         self.prediction_rows = payload["projection_tables"]["predictions"]
+        self.upcoming_prediction_rows = payload["projection_tables"]["upcoming_predictions"]
         self.performance_summary_cards = payload["performance"]["summary_cards"]
         self.performance_rows = payload["performance"]["rows"]
         self.performance_columns = payload["performance"]["columns"]
         self.runtime_rows = payload["settings_tables"]["runtime"]
+        self.data_health_rows = payload["settings_tables"]["data_health"]
         self.streamlit_entrypoint_rows = payload["settings_tables"]["streamlit_entrypoints"]
         self.reused_module_rows = payload["settings_tables"]["reused_modules"]
         self.odds_status = payload["odds_status"]
@@ -601,6 +607,12 @@ class AppState(rx.State):
                 return str(row.get("Value", "")).strip()
         return ""
 
+    def _data_health_value(self, item_name: str) -> str:
+        for row in self.data_health_rows:
+            if str(row.get("Item", "")).strip() == item_name:
+                return str(row.get("Value", "")).strip()
+        return ""
+
     @rx.var
     def model_simulation_count(self) -> str:
         raw_value = self._runtime_value("Default Sims")
@@ -621,6 +633,56 @@ class AppState(rx.State):
     def model_database_status(self) -> str:
         raw_value = self._runtime_value("Database Exists").lower()
         return "Connected" if raw_value == "true" else "Not connected"
+
+    @rx.var
+    def data_games_loaded(self) -> str:
+        return self._data_health_value("Games Loaded") or "0"
+
+    @rx.var
+    def data_stat_status(self) -> str:
+        return self._data_health_value("MLB Stats Status") or "Missing"
+
+    @rx.var
+    def data_feature_status(self) -> str:
+        feature_status = self._data_health_value("Feature Pipeline Status") or "Waiting"
+        feature_rows = self._data_health_value("Feature Rows") or "0"
+        return f"{feature_status} ({feature_rows})"
+
+    @rx.var
+    def data_weather_status(self) -> str:
+        source = self._data_health_value("Weather Probe Source") or "Unavailable"
+        team = self._data_health_value("Weather Probe Team") or "No slate loaded"
+        return f"{source} | {team}"
+
+    @rx.var
+    def data_health_notes(self) -> list[dict[str, str]]:
+        return [
+            {
+                "label": "Team Stats Rows",
+                "value": self._data_health_value("Team Stats Rows") or "0",
+                "helper": "Daily team stat rows available for feature engineering.",
+            },
+            {
+                "label": "Pitcher Stats Rows",
+                "value": self._data_health_value("Pitcher Stats Rows") or "0",
+                "helper": "Pitcher history rows available for ERA, FIP, and bullpen-derived features.",
+            },
+            {
+                "label": "Starting Pitchers",
+                "value": self._data_health_value("Starting Pitchers Loaded") or "0",
+                "helper": "Starter lookup rows saved in SQLite.",
+            },
+            {
+                "label": "Prediction Rows",
+                "value": self._data_health_value("Prediction Rows") or "0",
+                "helper": "Saved probability outputs ready for downstream views.",
+            },
+            {
+                "label": "Weather Probe",
+                "value": self._data_health_value("Weather Probe Temp") or "-",
+                "helper": self._data_health_value("Weather Probe Source") or "Unavailable",
+            },
+        ]
 
     @rx.var
     def odds_source_label(self) -> str:
@@ -1163,6 +1225,69 @@ class AppState(rx.State):
             )
         return rows
 
+    def _division_standings_rows(self, division_name: str) -> list[dict[str, str]]:
+        rows: list[dict[str, str]] = []
+        projected_lookup = {
+            str(row.get("Team", "")).strip(): row
+            for row in self.projected_rows
+        }
+        division_rows = [
+            row for row in self.current_rows
+            if str(row.get("Division", "")).strip() == division_name
+        ]
+        division_rows = sorted(
+            division_rows,
+            key=lambda row: (
+                -( _to_float(row.get("Actual Wins")) or 0.0),
+                (_to_float(row.get("Actual Losses")) or 0.0),
+                -( _to_float(row.get("Projected Wins")) or 0.0),
+            ),
+        )
+        for row in division_rows:
+            team_name = str(row.get("Team", "")).strip()
+            projected_row = projected_lookup.get(team_name, {})
+            actual_wins = int(_to_float(row.get("Actual Wins")) or 0)
+            actual_losses = int(_to_float(row.get("Actual Losses")) or 0)
+            projected_win_pct = _to_float(projected_row.get("Projected Win %")) or 0.0
+            projected_wins_value = _to_float(projected_row.get("Projected Wins")) or 0.0
+            projected_wins = int(round(projected_wins_value))
+            projected_losses = max(0, 162 - projected_wins)
+            rows.append(
+                {
+                    "Team": team_name or "-",
+                    "Current": f"{actual_wins}-{actual_losses}",
+                    "Projected": f"{projected_wins}-{projected_losses}",
+                    "Current Win %": f"{(_to_float(row.get('Win %')) or 0.0):.3f}",
+                    "Projected Win %": f"{projected_win_pct:.3f}",
+                    "Outlook": str(row.get("Playoff Outlook", "")).strip() or "-",
+                }
+            )
+        return rows
+
+    @rx.var
+    def al_east_standings_rows(self) -> list[dict[str, str]]:
+        return self._division_standings_rows("AL East")
+
+    @rx.var
+    def al_central_standings_rows(self) -> list[dict[str, str]]:
+        return self._division_standings_rows("AL Central")
+
+    @rx.var
+    def al_west_standings_rows(self) -> list[dict[str, str]]:
+        return self._division_standings_rows("AL West")
+
+    @rx.var
+    def nl_east_standings_rows(self) -> list[dict[str, str]]:
+        return self._division_standings_rows("NL East")
+
+    @rx.var
+    def nl_central_standings_rows(self) -> list[dict[str, str]]:
+        return self._division_standings_rows("NL Central")
+
+    @rx.var
+    def nl_west_standings_rows(self) -> list[dict[str, str]]:
+        return self._division_standings_rows("NL West")
+
     @rx.var
     def prediction_outlook_rows(self) -> list[dict[str, str]]:
         rows: list[dict[str, str]] = []
@@ -1171,6 +1296,30 @@ class AppState(rx.State):
                 {
                     "team": f"{str(row.get('away_team', '')).strip()} @ {str(row.get('home_team', '')).strip()}",
                     "detail": f"Home {_format_two_decimals(row.get('home_win_prob'))} | Away {_format_two_decimals(row.get('away_win_prob'))}",
+                }
+            )
+        return rows
+
+    @rx.var
+    def upcoming_prediction_table_rows(self) -> list[dict[str, str]]:
+        rows: list[dict[str, str]] = []
+        for row in self.upcoming_prediction_rows:
+            away_team = str(row.get("away_team", "")).strip()
+            home_team = str(row.get("home_team", "")).strip()
+            recommended_side = str(row.get("recommended_side", "")).strip()
+            recommended_bet = "Yes" if str(row.get("recommended_bet", "0")).strip() == "1" else "No"
+            rows.append(
+                {
+                    "Date": str(row.get("game_date", "")).strip() or "-",
+                    "Matchup": f"{away_team} @ {home_team}",
+                    "Away Win %": f"{((_to_float(row.get('away_win_prob')) or 0.0) * 100):.1f}%",
+                    "Home Win %": f"{((_to_float(row.get('home_win_prob')) or 0.0) * 100):.1f}%",
+                    "Away Market %": "-" if _to_float(row.get("market_away_implied_prob_no_vig")) is None else f"{((_to_float(row.get('market_away_implied_prob_no_vig')) or 0.0) * 100):.1f}%",
+                    "Home Market %": "-" if _to_float(row.get("market_home_implied_prob_no_vig")) is None else f"{((_to_float(row.get('market_home_implied_prob_no_vig')) or 0.0) * 100):.1f}%",
+                    "Away Edge": "-" if _to_float(row.get("edge_away")) is None else f"{((_to_float(row.get('edge_away')) or 0.0) * 100):+.1f}%",
+                    "Home Edge": "-" if _to_float(row.get("edge_home")) is None else f"{((_to_float(row.get('edge_home')) or 0.0) * 100):+.1f}%",
+                    "Recommended": recommended_side or "-",
+                    "Bet": recommended_bet,
                 }
             )
         return rows

@@ -66,8 +66,8 @@ def configure_logging(log_level: str) -> None:
     )
 
 
-def load_games(connection: sqlite3.Connection) -> pd.DataFrame:
-    """Load completed games with scores and starter ids from the database."""
+def load_games(connection: sqlite3.Connection, completed_only: bool = False) -> pd.DataFrame:
+    """Load games with starter ids from the database."""
     query = """
         SELECT
             game_id,
@@ -79,8 +79,14 @@ def load_games(connection: sqlite3.Connection) -> pd.DataFrame:
             home_starting_pitcher_id,
             away_starting_pitcher_id
         FROM games
-        WHERE home_score IS NOT NULL
+        WHERE 1 = 1
+    """
+    if completed_only:
+        query += """
+          AND home_score IS NOT NULL
           AND away_score IS NOT NULL
+        """
+    query += """
         ORDER BY game_date, game_id
     """
     games_df = pd.read_sql_query(query, connection)
@@ -89,7 +95,10 @@ def load_games(connection: sqlite3.Connection) -> pd.DataFrame:
         return games_df
 
     games_df["game_date"] = pd.to_datetime(games_df["game_date"])
-    LOGGER.info("Loaded %s completed games from the games table", len(games_df))
+    if completed_only:
+        LOGGER.info("Loaded %s completed games from the games table", len(games_df))
+    else:
+        LOGGER.info("Loaded %s total games from the games table", len(games_df))
     return games_df
 
 
@@ -296,6 +305,10 @@ def build_feature_row(
     if home_bullpen_ip_last3 is not None and away_bullpen_ip_last3 is not None:
         bullpen_rest_edge = away_bullpen_ip_last3 - home_bullpen_ip_last3
 
+    target_home_win = None
+    if pd.notna(game_row.get("home_score")) and pd.notna(game_row.get("away_score")):
+        target_home_win = 1 if game_row["home_score"] > game_row["away_score"] else 0
+
     return {
         "game_id": int(game_row["game_id"]),
         "home_win_pct_last10": mean_or_none(home_last10["win"]),
@@ -316,7 +329,7 @@ def build_feature_row(
         "away_bullpen_ip_last3": away_bullpen_ip_last3,
         "bullpen_rest_edge": bullpen_rest_edge,
         "home_field_flag": 1,
-        "target_home_win": 1 if game_row["home_score"] > game_row["away_score"] else 0,
+        "target_home_win": target_home_win,
     }
 
 
@@ -412,18 +425,22 @@ def upsert_model_features(connection: sqlite3.Connection, feature_rows: list[dic
 
 
 def build_game_features(start_date: str | None = None, end_date: str | None = None) -> int:
-    """Build one model_features row per game using only prior-game history."""
+    """Build one model_features row per game using only prior completed-game history."""
     initialize_database()
 
     with sqlite3.connect(DB_PATH) as connection:
-        games_df = load_games(connection)
+        games_df = load_games(connection, completed_only=False)
+        completed_games_df = load_games(connection, completed_only=True)
 
         if games_df.empty:
+            LOGGER.warning("No games were found in the games table.")
+            return 0
+        if completed_games_df.empty:
             LOGGER.warning("No completed games with scores were found in the games table.")
             return 0
 
         pitcher_history = load_pitcher_history(connection)
-        team_history = build_team_history(games_df, pitcher_history)
+        team_history = build_team_history(completed_games_df, pitcher_history)
         games_to_process = filter_games(games_df, start_date, end_date)
 
         LOGGER.info("Building v1 features for %s games", len(games_to_process))

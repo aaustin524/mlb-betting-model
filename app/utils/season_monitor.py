@@ -176,6 +176,15 @@ def load_current_season_schedule_from_db(db_path=DB_PATH):
     schedule_df = schedule_df.dropna(subset=["home_team", "away_team"]).copy()
     schedule_df["game_date"] = pd.to_datetime(schedule_df["game_date"], errors="coerce")
 
+    # When the local database contains spring or exhibition rows before the
+    # current regular-season slate, anchor the standings window to the first
+    # scheduled regular-season date minus one day so current records start at
+    # Opening Day instead of earlier exhibition results.
+    scheduled_rows = schedule_df.loc[schedule_df["status"].fillna("").eq("Scheduled")].copy()
+    if not scheduled_rows.empty:
+        regular_season_start = scheduled_rows["game_date"].min() - pd.Timedelta(days=1)
+        schedule_df = schedule_df.loc[schedule_df["game_date"] >= regular_season_start].copy()
+
     return schedule_df[
         [
             "season",
@@ -328,11 +337,16 @@ def build_current_division_standings(team_ratings_df):
     standings_df["Proj Remaining Losses"] = standings_df["Remaining Games"] - standings_df["Proj Remaining Wins"]
     standings_df["Projected Wins"] = standings_df["Actual Wins"] + standings_df["Proj Remaining Wins"]
     standings_df["Projected Losses"] = standings_df["Actual Losses"] + standings_df["Proj Remaining Losses"]
-    standings_df["Win %"] = (
-        standings_df["Actual Wins"] / standings_df["Games Played"].replace({0: pd.NA})
+    games_played = pd.to_numeric(standings_df["Games Played"], errors="coerce")
+    actual_wins = pd.to_numeric(standings_df["Actual Wins"], errors="coerce")
+    projected_wins = pd.to_numeric(standings_df["Projected Wins"], errors="coerce")
+    projected_losses = pd.to_numeric(standings_df["Projected Losses"], errors="coerce")
+
+    standings_df["Win %"] = actual_wins.div(games_played.where(games_played != 0)).fillna(0.0)
+    total_games_projection = (projected_wins + projected_losses)
+    standings_df["Projected Win %"] = projected_wins.div(
+        total_games_projection.where(total_games_projection != 0)
     ).fillna(0.0)
-    total_games_projection = (standings_df["Projected Wins"] + standings_df["Projected Losses"]).replace({0: pd.NA})
-    standings_df["Projected Win %"] = (standings_df["Projected Wins"] / total_games_projection).fillna(0.0)
     standings_df["League"] = standings_df["Division"].str[:2]
     standings_df = standings_df.sort_values(
         by=["Division", "Projected Wins", "Power Score"],

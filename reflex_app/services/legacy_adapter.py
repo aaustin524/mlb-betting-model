@@ -369,3 +369,37 @@ def read_prediction_rows(limit: int = 10) -> list[dict[str, object]]:
     except sqlite3.Error:
         return []
     return rows.to_dict("records")
+
+
+def read_upcoming_prediction_rows(limit: int = 20) -> list[dict[str, object]]:
+    """Read upcoming saved prediction rows with market comparison fields."""
+    query = """
+        SELECT
+            g.game_date,
+            away.team_name AS away_team,
+            home.team_name AS home_team,
+            p.away_win_prob,
+            p.home_win_prob,
+            p.market_away_implied_prob_no_vig,
+            p.market_home_implied_prob_no_vig,
+            p.edge_away,
+            p.edge_home,
+            p.recommended_side,
+            p.recommended_bet
+        FROM predictions p
+        JOIN games g ON g.game_id = p.game_id
+        JOIN teams away ON away.team_id = g.away_team_id
+        JOIN teams home ON home.team_id = g.home_team_id
+        WHERE g.home_score IS NULL
+          AND g.away_score IS NULL
+        ORDER BY g.game_date ASC, p.game_id ASC
+        LIMIT ?
+    """
+    if not DB_PATH.exists():
+        return []
+    try:
+        with get_connection() as connection:
+            rows = pd.read_sql_query(query, connection, params=[limit])
+    except sqlite3.Error:
+        return []
+    return rows.to_dict("records")
